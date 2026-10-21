@@ -586,3 +586,8 @@ input[type="checkbox"]:indeterminate {
   .grupo-conteudo { position: static; max-width: none; }
   .acoes-direita { margin-left: 0; }
 }
+.grupo-resp {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: var(--sutil); cursor: default;
+}
+.grupo-resp select { height: 26px; font-size: 12.5px; max-width: 200px; }

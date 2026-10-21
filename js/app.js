@@ -277,6 +277,7 @@
           <strong>${esc(p0.municipio)}${p0.uf ? '/' + esc(p0.uf) : ''}</strong><span class="grupo-ano">${p0.ano}</span>
         </button>
         <span class="grupo-info">${plural(n, 'empresa', 'empresas')} · <strong>${moeda(total)}</strong></span>
+        ${seletorResponsavelGrupo(chave, itens)}
         <span class="grupo-chips">
           ${chip(c.naoIniciado, `${c.naoIniciado} não ${c.naoIniciado === 1 ? 'iniciada' : 'iniciadas'}`, '')}
           ${chip(c.andamento, `${c.andamento} em andamento`, 'info')}
@@ -291,6 +292,30 @@
         </span>
       </div></td>
     </tr>`;
+  }
+
+  // Responsável do município: mostra o atual (ou "Vários") e permite trocar todas as empresas do grupo.
+  function seletorResponsavelGrupo(chave, itens) {
+    const ids = new Set(itens.map((p) => p.responsavel_id || ''));
+    const unico = ids.size === 1 ? [...ids][0] : null;
+    const opcoes = estado.perfis.map((u) =>
+      `<option value="${u.id}" ${u.id === unico ? 'selected' : ''}>${esc(u.nome || u.email)}</option>`).join('');
+    return `<label class="grupo-resp">Responsável
+      <select data-acao="responsavel-grupo" data-lote="${esc(chave)}" title="Definir o responsável de todas as empresas deste município">
+        ${unico === null ? `<option value="__varios" selected disabled>Vários (${ids.size})</option>` : ''}
+        <option value="" ${unico === '' ? 'selected' : ''}>— sem responsável —</option>
+        ${opcoes}
+      </select></label>`;
+  }
+
+  async function atribuirGrupo(chave, responsavel) {
+    const ids = filtrados().filter((p) => lote(p) === chave).map((p) => p.id);
+    const nome = responsavel ? nomePerfil(responsavel) : 'ninguém (sem responsável)';
+    if (!confirm(`Atribuir ${ids.length} empresa(s) de ${chave} a ${nome}?`)) return renderizar();
+    const { error } = await sb.from('processos').update({ responsavel_id: responsavel }).in('id', ids);
+    if (error) { avisar(error.message); return renderizar(); }
+    avisar(`${ids.length} empresa(s) de ${chave} atribuída(s) a ${nome}.`, 'ok');
+    await carregar();
   }
 
   function corpoAgrupado(lista) {
@@ -480,6 +505,9 @@
         if (el.checked) estado.selecionados.add(id); else estado.selecionados.delete(id);
         atualizarSelecao();
         break;
+      case 'responsavel-grupo':
+        atribuirGrupo(el.dataset.lote, el.value || null);
+        break;
       case 'selecionar-grupo':
         for (const p of filtrados()) {
           if (lote(p) !== el.dataset.lote) continue;
@@ -494,7 +522,7 @@
     // Linha do município: clicar em qualquer ponto (menos na caixa de seleção) abre/fecha.
     const grupo = e.target.closest('tr.grupo');
     if (grupo) {
-      if (!e.target.closest('input')) alternarGrupo(grupo.dataset.lote);
+      if (!e.target.closest('input, select, label')) alternarGrupo(grupo.dataset.lote);
       return;
     }
     const el = e.target.closest('button');
