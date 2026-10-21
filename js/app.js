@@ -128,7 +128,7 @@
   async function carregar() {
     if (!estado.processos.length) {
       $('#tabela tbody').innerHTML =
-        '<tr class="carregando"><td colspan="13"><span class="girando"></span>Carregando empresas…</td></tr>';
+        '<tr class="carregando"><td colspan="12"><span class="girando"></span>Carregando empresas…</td></tr>';
       $('#vazio').hidden = true;
     }
     const consultas = [sb.from('processos').select('*').order('calculo', { ascending: false })];
@@ -248,49 +248,63 @@
       a[0].municipio.localeCompare(b[0].municipio, 'pt-BR') || b[0].ano - a[0].ano);
   }
 
-  function grupoHtml(chave, itens, aberto) {
+  // Linha do município alinhada às colunas da tabela: cada coluna de etapa mostra
+  // quantas empresas do município já passaram por ela.
+  function grupoHtml(chave, itens, aberto, mesmoMunicipioAnterior) {
     const agora = new Date();
-    const c = { andamento: 0, parado: 0, pago: 0, deferida: 0, impugnado: 0, auto: 0, naoIniciado: 0 };
+    const n = itens.length;
+    const conta = (f) => itens.filter(f).length;
     let total = 0;
+    let encerradas = 0;
+    let paradas = 0;
+    let autos = 0;
     for (const p of itens) {
       total += Number(p.calculo);
       const s = Fluxo.situacao(p, agora, DIAS_PARADO);
-      if (s.chave === 'pago') c.pago++;
-      else if (s.chave === 'deferida') c.deferida++;
-      else if (s.chave === 'auto') c.auto++;
-      else if (s.texto === 'Não iniciado') c.naoIniciado++;
-      else c.andamento++;
-      if (!s.encerrado && s.parado) c.parado++;
-      if (p.impugnacao_em) c.impugnado++;
+      if (s.encerrado) encerradas++;
+      if (!s.encerrado && s.parado) paradas++;
+      if (s.chave === 'auto') autos++;
     }
+    const pagas = conta((p) => p.pagamento === 'pago');
+    const naoPagas = conta((p) => p.pagamento === 'nao_pago');
+    const impugnadas = conta((p) => p.impugnacao_em);
+    const respostas = conta((p) => p.resposta_em);
+
+    // Etapa linear: "feitas/total" + barrinha de progresso.
+    const fracao = (campo) => {
+      const k = conta((p) => p[campo]);
+      const tom = k === 0 ? 'zero' : k === n ? 'completo' : '';
+      return `<td class="etapa"><span class="fracao ${tom}">${k}<small>/${n}</small></span>
+        <span class="mini-barra"><i style="width:${Math.round((k / n) * 100)}%"></i></span></td>`;
+    };
+    const numero = (k, tom = '') => `<td class="etapa">${k ? `<span class="contagem ${tom}">${k}</span>` : '<span class="traco">—</span>'}</td>`;
+    const pagamento = pagas || naoPagas
+      ? `<span class="contagem ok">${pagas} ${pagas === 1 ? 'paga' : 'pagas'}</span>
+         <span class="contagem alerta">${naoPagas} não</span>`
+      : '<span class="traco">—</span>';
     const p0 = itens[0];
-    const n = itens.length;
-    const plural = (q, s, pl) => `${q} ${q === 1 ? s : pl}`;
-    const chip = (q, texto, tom) => (q ? `<span class="etiqueta ${tom}">${texto}</span>` : '');
-    const seg = (q, tom, titulo) => (q
-      ? `<span class="seg ${tom}" style="flex:${q}" title="${titulo}: ${q}"></span>` : '');
-    return `<tr class="grupo ${aberto ? 'aberto' : ''}" data-lote="${esc(chave)}">
-      <td><input type="checkbox" data-acao="selecionar-grupo" data-lote="${esc(chave)}" title="Selecionar todas as empresas do município"></td>
-      <td colspan="12"><div class="grupo-conteudo">
-        <button type="button" class="grupo-titulo" data-acao="grupo" data-lote="${esc(chave)}" aria-expanded="${aberto}">
-          <svg class="ic"><use href="#i-seta"/></svg>
-          <strong>${esc(p0.municipio)}${p0.uf ? '/' + esc(p0.uf) : ''}</strong><span class="grupo-ano">${p0.ano}</span>
-        </button>
-        <span class="grupo-info">${plural(n, 'empresa', 'empresas')} · <strong>${moeda(total)}</strong></span>
-        ${seletorResponsavelGrupo(chave, itens)}
-        <span class="grupo-chips">
-          ${chip(c.naoIniciado, `${c.naoIniciado} não ${c.naoIniciado === 1 ? 'iniciada' : 'iniciadas'}`, '')}
-          ${chip(c.andamento, `${c.andamento} em andamento`, 'info')}
-          ${chip(c.parado, plural(c.parado, 'parada', 'paradas'), 'alerta')}
-          ${chip(c.pago, plural(c.pago, 'paga', 'pagas'), 'ok')}
-          ${chip(c.impugnado, plural(c.impugnado, 'impugnada', 'impugnadas'), '')}
-          ${chip(c.deferida, plural(c.deferida, 'deferida', 'deferidas'), 'ok')}
-          ${chip(c.auto, plural(c.auto, 'auto de infração', 'autos de infração'), 'erro')}
-        </span>
-        <span class="grupo-barra" title="Distribuição das empresas por situação">
-          ${seg(c.pago + c.deferida, 'ok', 'Encerradas sem auto')}${seg(c.auto, 'erro', 'Auto de infração')}${seg(c.andamento, 'info', 'Em andamento')}${seg(c.naoIniciado, 'nada', 'Não iniciadas')}
-        </span>
-      </div></td>
+    const nome = `${esc(p0.municipio)}${p0.uf ? '/' + esc(p0.uf) : ''}`;
+
+    return `<tr class="grupo ${aberto ? 'aberto' : ''} ${mesmoMunicipioAnterior ? 'mesmo-municipio' : ''}" data-lote="${esc(chave)}">
+      <td><input type="checkbox" data-acao="selecionar-grupo" data-lote="${esc(chave)}" title="Selecionar todas as empresas deste município/ano"></td>
+      <td class="empresa"><div class="grupo-nome">
+        <svg class="ic seta"><use href="#i-seta"/></svg>
+        <strong title="${nome}">${nome}</strong>
+        <span class="grupo-ano">${p0.ano}</span>
+      </div><small class="grupo-qtd">${n} ${n === 1 ? 'empresa' : 'empresas'}</small></td>
+      <td class="num nowrap valor">${moeda(total)}</td>
+      <td>${seletorResponsavelGrupo(chave, itens)}</td>
+      ${fracao('notificacao_elaboracao_em')}
+      ${fracao('entrega_municipio_em')}
+      ${fracao('remessa_guia_em')}
+      <td class="etapa grupo-pagamento">${pagamento}</td>
+      ${numero(impugnadas)}
+      ${numero(respostas)}
+      ${numero(autos, 'erro')}
+      <td class="grupo-situacao">
+        <span class="${encerradas === n ? 'ok' : ''}">${encerradas}/${n} encerradas</span>
+        ${paradas ? `<span class="etiqueta alerta">${paradas} ${paradas === 1 ? 'parada' : 'paradas'}</span>` : ''}
+      </td>
     </tr>`;
   }
 
@@ -300,12 +314,11 @@
     const unico = ids.size === 1 ? [...ids][0] : null;
     const opcoes = estado.perfis.map((u) =>
       `<option value="${u.id}" ${u.id === unico ? 'selected' : ''}>${esc(u.nome || u.email)}</option>`).join('');
-    return `<label class="grupo-resp">Responsável
-      <select data-acao="responsavel-grupo" data-lote="${esc(chave)}" title="Definir o responsável de todas as empresas deste município">
+    return `<select class="grupo-resp" data-acao="responsavel-grupo" data-lote="${esc(chave)}" title="Responsável por todas as empresas deste município/ano">
         ${unico === null ? `<option value="__varios" selected disabled>Vários (${ids.size})</option>` : ''}
-        <option value="" ${unico === '' ? 'selected' : ''}>— sem responsável —</option>
+        <option value="" ${unico === '' ? 'selected' : ''}>Nenhum</option>
         ${opcoes}
-      </select></label>`;
+      </select>`;
   }
 
   async function atribuirGrupo(chave, responsavel) {
@@ -320,9 +333,13 @@
 
   function corpoAgrupado(lista) {
     const forcar = gruposForcados();
+    let anterior = null;
     return agrupar(lista).map(([chave, itens]) => {
       const aberto = forcar || estado.abertos.has(chave);
-      return grupoHtml(chave, itens, aberto) + (aberto ? itens.map(linhaHtml).join('') : '');
+      // Mesmo município em outro ano: o nome não se repete, só o ano.
+      const mesmo = anterior === itens[0].municipio + '/' + itens[0].uf;
+      anterior = itens[0].municipio + '/' + itens[0].uf;
+      return grupoHtml(chave, itens, aberto, mesmo) + (aberto ? itens.map(linhaHtml).join('') : '');
     }).join('');
   }
 
@@ -449,8 +466,8 @@
     return `<tr class="${classeLinha}">
       ${admin ? `<td><input type="checkbox" data-acao="selecionar" data-id="${p.id}" ${estado.selecionados.has(p.id) ? 'checked' : ''}></td>` : ''}
       <td class="empresa">${admin ? `<button class="link" data-acao="historico" data-id="${p.id}" title="Ver histórico">${esc(p.empresa)}</button>` : esc(p.empresa)}
+        <small class="mono cnpj">${cnpjFmt(p.cnpj)}</small>
         ${admin ? '' : `<small>${esc(lote(p))}</small>`}</td>
-      <td class="nowrap mono">${cnpjFmt(p.cnpj)}</td>
       <td class="num nowrap valor">${moeda(p.calculo)}</td>
       ${admin ? `<td><select data-acao="responsavel" data-id="${p.id}">
         <option value="">—</option>

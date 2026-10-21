@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=1.8">
+  <link rel="stylesheet" href="css/style.css?v=1.9">
 </head>
 <body>
   <!-- Ícones (Lucide, MIT) -->
@@ -92,7 +92,7 @@
           <div><strong>AcompanhaIR</strong><small>Acompanhamento de notificações de IRRF</small></div>
         </div>
         <div class="topo-direita">
-          <span class="versao">v1.8</span>
+          <span class="versao">v1.9</span>
           <button id="btn-tema" class="icone" type="button" title="Alternar tema claro/escuro">
             <svg class="ic tema-claro"><use href="#i-lua"/></svg>
             <svg class="ic tema-escuro"><use href="#i-sol"/></svg>
@@ -142,8 +142,8 @@
             <select id="f-responsavel" class="so-admin"><option value="">Todos os responsáveis</option></select>
             <span class="acoes-direita">
               <span class="grupo-acoes so-admin">
-                <button id="btn-expandir" class="secundario" type="button" title="Abrir todos os municípios">Expandir todos</button>
-                <button id="btn-recolher" class="secundario" type="button" title="Fechar todos os municípios">Recolher todos</button>
+                <button id="btn-expandir" class="secundario" type="button" title="Abrir todos os municípios">Expandir</button>
+                <button id="btn-recolher" class="secundario" type="button" title="Fechar todos os municípios">Recolher</button>
               </span>
               <button id="btn-csv" class="secundario" type="button"><svg class="ic"><use href="#i-download"/></svg>Exportar CSV</button>
             </span>
@@ -163,15 +163,15 @@
               <thead>
                 <tr>
                   <th class="so-admin col-sel"><input type="checkbox" id="sel-todos" title="Selecionar todos"></th>
-                  <th class="col-empresa"><button class="ordenar" data-ordem="empresa">Empresa<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
-                  <th><button class="ordenar" data-ordem="cnpj">CNPJ<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
+                  <th class="col-empresa"><button class="ordenar" data-ordem="empresa">Empresa<svg class="ic"><use href="#i-ordenar"/></svg></button>
+                    <span class="sep-ordem">/</span><button class="ordenar" data-ordem="cnpj">CNPJ<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
                   <th class="num"><button class="ordenar" data-ordem="calculo">Cálculo<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
                   <th class="so-admin">Responsável</th>
                   <th class="etapa">Notificação<br>elaboração</th>
                   <th class="etapa">Entrega<br>município</th>
-                  <th class="etapa">Remessa notif.<br>c/ guia</th>
+                  <th class="etapa">Remessa<br>c/ guia</th>
                   <th class="etapa">Pagamento</th>
-                  <th class="etapa">Impugnação</th>
+                  <th class="etapa">Impug&shy;nação</th>
                   <th class="etapa">Resposta<br>impugnação</th>
                   <th class="etapa">Auto de<br>infração</th>
                   <th><button class="ordenar" data-ordem="situacao">Situação<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
@@ -344,9 +344,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="js/config.js?v=1.8"></script>
-  <script src="js/pdf-parser.js?v=1.8"></script>
-  <script src="js/fluxo.js?v=1.8"></script>
-  <script src="js/app.js?v=1.8"></script>
+  <script src="js/config.js?v=1.9"></script>
+  <script src="js/pdf-parser.js?v=1.9"></script>
+  <script src="js/fluxo.js?v=1.9"></script>
+  <script src="js/app.js?v=1.9"></script>
 </body>
 </html>

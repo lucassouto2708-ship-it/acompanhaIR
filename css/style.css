@@ -543,54 +543,68 @@ body.admin #tabela tbody tr:hover td:first-child { background: var(--azul-claro)
 /* ---------------------------------------------------------------- agrupamento por município (admin) */
 .acoes-direita { display: inline-flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .grupo-acoes { display: inline-flex; gap: 8px; }
-.grade tbody tr.grupo td {
-  background: var(--superficie-2); border-bottom: 1px solid var(--borda-forte);
-  padding-top: 9px; padding-bottom: 9px; cursor: pointer;
+.barra-ferramentas select { max-width: 215px; }
+/* Coluna Empresa com largura contida: nomes longos quebram (empresas) ou ganham reticências (municípios) */
+#tabela td.empresa, #tabela th.col-empresa { min-width: 220px; max-width: 244px; width: 244px; }
+/* Colunas de etapa mais enxutas e situação quebrando linha: a tabela cabe melhor em telas de notebook */
+#tabela th.etapa, #tabela td.etapa { min-width: 76px; padding-left: 4px; padding-right: 4px; }
+#tabela th.etapa { font-size: 10.5px; letter-spacing: .02em; white-space: normal; }
+#tabela .situacao { white-space: normal; align-items: flex-start; min-width: 140px; max-width: 170px; }
+#tabela .situacao::before { margin-top: 5px; }
+td.grupo-situacao .etiqueta { display: inline-flex; margin: 4px 0 0; }
+/* Linha do município: fundo próprio, alinhada às colunas da tabela */
+body.admin #tabela tbody tr.grupo td {
+  background: var(--superficie-2); border-bottom: 1px solid var(--borda);
+  padding-top: 8px; padding-bottom: 8px; cursor: pointer; vertical-align: middle;
 }
-.grade tbody tr.grupo:hover td { background: var(--azul-claro); }
-.grade tbody tr.grupo.aberto td { background: var(--azul-claro); border-bottom-color: var(--primaria); }
-/* Conteúdo do grupo acompanha a rolagem horizontal, sempre visível à esquerda */
-.grupo-conteudo {
-  position: sticky; left: 48px; width: max-content; max-width: calc(100vw - 140px);
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px;
+body.admin #tabela tbody tr.grupo:hover td { background: var(--azul-claro); }
+body.admin #tabela tbody tr.grupo.aberto td { background: var(--azul-claro); border-bottom: 1px solid var(--primaria); }
+/* Separador mais forte entre municípios diferentes; anos do mesmo município ficam juntos */
+body.admin #tabela tbody tr.grupo:not(.mesmo-municipio) td { border-top: 1px solid var(--borda-forte); }
+body.admin #tabela tbody tr.grupo.mesmo-municipio .grupo-nome strong { visibility: hidden; }
+
+.grupo-nome { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.grupo-nome .seta { width: 15px; height: 15px; color: var(--sutil); transition: transform .15s; flex: none; }
+tr.grupo.aberto .grupo-nome .seta { transform: rotate(90deg); color: var(--primaria); }
+.grupo-nome strong {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px; letter-spacing: .01em;
 }
-.grupo-titulo {
-  height: auto; padding: 0; gap: 6px; border: 0; background: none; color: var(--texto); font-weight: 600;
-}
-.grupo-titulo .ic { width: 15px; height: 15px; color: var(--sutil); transition: transform .15s; }
-tr.grupo.aberto .grupo-titulo .ic { transform: rotate(90deg); color: var(--primaria); }
-.grupo-titulo strong { font-size: 13.5px; letter-spacing: .01em; }
 .grupo-ano {
-  font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--primaria);
+  flex: none; font-family: var(--mono); font-size: 11.5px; font-weight: 500; color: var(--primaria);
   padding: 1px 6px; border: 1px solid var(--borda-forte); border-radius: 3px; background: var(--superficie);
 }
-.grupo-info { color: var(--sutil); font-size: 12.5px; }
-.grupo-info strong { color: var(--texto); }
-.grupo-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.grupo-barra {
-  display: inline-flex; width: 140px; height: 6px; border-radius: 3px; overflow: hidden;
-  background: var(--borda); gap: 1px;
+.grupo-qtd { padding-left: 21px; margin-top: 1px; }
+td.empresa small.cnpj { font-size: 11.5px; color: var(--sutil); margin-top: 2px; }
+.sep-ordem { margin: 0 6px; color: var(--borda-forte); }
+select.grupo-resp { width: 150px; height: 28px; font-size: 12.5px; }
+#tabela td select[data-acao="responsavel"] { width: 150px; max-width: none; }
+
+.fracao { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--texto); }
+.fracao small { display: inline; font-size: 11px; color: var(--sutil); }
+.fracao.zero { color: var(--sutil); }
+.fracao.completo { color: var(--ok); }
+.mini-barra {
+  display: block; width: 48px; height: 3px; margin: 4px auto 0;
+  background: var(--borda); border-radius: 2px; overflow: hidden;
 }
-.grupo-barra .seg { min-width: 3px; }
-.grupo-barra .seg.ok { background: var(--ok); }
-.grupo-barra .seg.erro { background: var(--erro); }
-.grupo-barra .seg.info { background: var(--primaria); }
-.grupo-barra .seg.nada { background: var(--borda-forte); }
+.mini-barra i { display: block; height: 100%; background: var(--primaria); }
+.fracao.completo + .mini-barra i { background: var(--ok); }
+.contagem { display: block; font-family: var(--mono); font-size: 12px; font-weight: 600; line-height: 1.5; }
+.contagem.ok { color: var(--ok); }
+.contagem.alerta { color: var(--atencao); }
+.contagem.erro { color: var(--erro); }
+td.grupo-pagamento { white-space: nowrap; }
+td.grupo-situacao { font-size: 12px; color: var(--sutil); min-width: 140px; }
+td.grupo-situacao > span:first-child { display: block; white-space: nowrap; }
+td.grupo-situacao .ok { color: var(--ok); font-weight: 600; }
+
 /* Empresas dentro do município: leve recuo para indicar hierarquia */
-body.admin #tabela tbody tr:not(.grupo) td.empresa { padding-left: 26px; }
+body.admin #tabela tbody tr:not(.grupo) td.empresa { padding-left: 30px; }
 input[type="checkbox"]:indeterminate {
   border-color: var(--primaria);
   background: var(--primaria) linear-gradient(var(--primaria-texto), var(--primaria-texto)) center / 9px 2px no-repeat;
 }
-@media (max-width: 760px) {
-  .grupo-conteudo { position: static; max-width: none; }
-  .acoes-direita { margin-left: 0; }
-}
-.grupo-resp {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 500; color: var(--sutil); cursor: default;
-}
-.grupo-resp select { height: 26px; font-size: 12.5px; max-width: 200px; }
 
 /* ---------------------------------------------------------------- prévia: PDF antigo com texto cortado */
 #tabela-previa .campo-nome { width: 100%; min-width: 260px; height: 28px; font-size: 12.5px; }
