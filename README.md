@@ -64,9 +64,9 @@ burlá-las pelo navegador.
 
 ### 3. Configurar o site
 
-Em **Project Settings → API**, copie a **Project URL** e a chave **anon public**. Cole as duas
-em [`js/config.js`](js/config.js). A chave *anon* é feita para ficar no site: quem protege os
-dados são as regras de acesso do banco. **Nunca** coloque a chave `service_role` no site.
+Em **Project Settings → API Keys**, copie a **Publishable key** (`sb_publishable_...`); a URL é `https://<id-do-projeto>.supabase.co`. Cole as duas
+em [`js/config.js`](js/config.js). A chave publicável é feita para ficar no site: quem protege os
+dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb_secret_...`) no site.
 
 ### 4. Publicar no GitHub Pages
 
