@@ -116,3 +116,9 @@ supabase/schema.sql   tabelas, validação das etapas, histórico e regras de ac
 
 Não há etapa de build: são arquivos estáticos. As bibliotecas (supabase-js e pdf.js) são
 carregadas de CDN com versão fixa.
+
+## Publicando uma nova versão
+
+O GitHub Pages guarda os arquivos em cache por até 10 minutos. Ao alterar o site, atualize o número
+da versão no `index.html` (o selo `vX.Y` e o `?v=X.Y` nos links de CSS/JS): assim o navegador busca os
+arquivos novos juntos, sem misturar HTML novo com JavaScript antigo.
