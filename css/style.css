@@ -302,7 +302,7 @@ main > section { display: grid; gap: 16px; }
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   padding: 12px 16px; border-bottom: 1px solid var(--borda);
 }
-.busca { position: relative; flex: 0 1 320px; display: flex; }
+.busca { position: relative; flex: 0 1 300px; display: flex; }
 .busca .ic { position: absolute; left: 10px; top: 8px; color: var(--sutil); pointer-events: none; }
 .busca input { width: 100%; padding-left: 32px; }
 .barra-selecao {
@@ -538,4 +538,51 @@ body.admin #tabela tbody tr:hover td:first-child { background: var(--azul-claro)
 @media (max-width: 760px) {
   .grade td.empresa, #tabela th.col-empresa,
   body.admin #tabela th.col-sel, body.admin #tabela tbody td:first-child { position: static; }
+}
+
+/* ---------------------------------------------------------------- agrupamento por município (admin) */
+.acoes-direita { display: inline-flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.grupo-acoes { display: inline-flex; gap: 8px; }
+.grade tbody tr.grupo td {
+  background: var(--superficie-2); border-bottom: 1px solid var(--borda-forte);
+  padding-top: 9px; padding-bottom: 9px; cursor: pointer;
+}
+.grade tbody tr.grupo:hover td { background: var(--azul-claro); }
+.grade tbody tr.grupo.aberto td { background: var(--azul-claro); border-bottom-color: var(--primaria); }
+/* Conteúdo do grupo acompanha a rolagem horizontal, sempre visível à esquerda */
+.grupo-conteudo {
+  position: sticky; left: 48px; width: max-content; max-width: calc(100vw - 140px);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px;
+}
+.grupo-titulo {
+  height: auto; padding: 0; gap: 6px; border: 0; background: none; color: var(--texto); font-weight: 600;
+}
+.grupo-titulo .ic { width: 15px; height: 15px; color: var(--sutil); transition: transform .15s; }
+tr.grupo.aberto .grupo-titulo .ic { transform: rotate(90deg); color: var(--primaria); }
+.grupo-titulo strong { font-size: 13.5px; letter-spacing: .01em; }
+.grupo-ano {
+  font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--primaria);
+  padding: 1px 6px; border: 1px solid var(--borda-forte); border-radius: 3px; background: var(--superficie);
+}
+.grupo-info { color: var(--sutil); font-size: 12.5px; }
+.grupo-info strong { color: var(--texto); }
+.grupo-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.grupo-barra {
+  display: inline-flex; width: 140px; height: 6px; border-radius: 3px; overflow: hidden;
+  background: var(--borda); gap: 1px;
+}
+.grupo-barra .seg { min-width: 3px; }
+.grupo-barra .seg.ok { background: var(--ok); }
+.grupo-barra .seg.erro { background: var(--erro); }
+.grupo-barra .seg.info { background: var(--primaria); }
+.grupo-barra .seg.nada { background: var(--borda-forte); }
+/* Empresas dentro do município: leve recuo para indicar hierarquia */
+body.admin #tabela tbody tr:not(.grupo) td.empresa { padding-left: 26px; }
+input[type="checkbox"]:indeterminate {
+  border-color: var(--primaria);
+  background: var(--primaria) linear-gradient(var(--primaria-texto), var(--primaria-texto)) center / 9px 2px no-repeat;
+}
+@media (max-width: 760px) {
+  .grupo-conteudo { position: static; max-width: none; }
+  .acoes-direita { margin-left: 0; }
 }

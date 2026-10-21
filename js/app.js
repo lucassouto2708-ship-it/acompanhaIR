@@ -223,10 +223,106 @@
     });
   }
 
+  // ------------------------------------------------------------------ agrupamento por município (admin)
+
+  const CHAVE_ABERTOS = 'acompanhair-municipios-abertos';
+  estado.abertos = new Set((() => {
+    try { return JSON.parse(localStorage.getItem(CHAVE_ABERTOS)) || []; } catch (e) { return []; }
+  })());
+  function salvarAbertos() {
+    try { localStorage.setItem(CHAVE_ABERTOS, JSON.stringify([...estado.abertos])); } catch (e) { /* ignora */ }
+  }
+
+  // Busca por texto ou município escolhido no filtro abrem os grupos automaticamente,
+  // para o resultado não ficar escondido dentro de um município fechado.
+  const gruposForcados = () => !!$('#f-busca').value.trim() || !!$('#f-lote').value;
+
+  function agrupar(lista) {
+    const grupos = new Map();
+    for (const p of lista) {
+      const k = lote(p);
+      if (!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k).push(p);
+    }
+    return [...grupos.entries()].sort(([, a], [, b]) =>
+      a[0].municipio.localeCompare(b[0].municipio, 'pt-BR') || b[0].ano - a[0].ano);
+  }
+
+  function grupoHtml(chave, itens, aberto) {
+    const agora = new Date();
+    const c = { andamento: 0, parado: 0, pago: 0, deferida: 0, impugnado: 0, auto: 0, naoIniciado: 0 };
+    let total = 0;
+    for (const p of itens) {
+      total += Number(p.calculo);
+      const s = Fluxo.situacao(p, agora, DIAS_PARADO);
+      if (s.chave === 'pago') c.pago++;
+      else if (s.chave === 'deferida') c.deferida++;
+      else if (s.chave === 'auto') c.auto++;
+      else if (s.texto === 'Não iniciado') c.naoIniciado++;
+      else c.andamento++;
+      if (!s.encerrado && s.parado) c.parado++;
+      if (p.impugnacao_em) c.impugnado++;
+    }
+    const p0 = itens[0];
+    const n = itens.length;
+    const plural = (q, s, pl) => `${q} ${q === 1 ? s : pl}`;
+    const chip = (q, texto, tom) => (q ? `<span class="etiqueta ${tom}">${texto}</span>` : '');
+    const seg = (q, tom, titulo) => (q
+      ? `<span class="seg ${tom}" style="flex:${q}" title="${titulo}: ${q}"></span>` : '');
+    return `<tr class="grupo ${aberto ? 'aberto' : ''}" data-lote="${esc(chave)}">
+      <td><input type="checkbox" data-acao="selecionar-grupo" data-lote="${esc(chave)}" title="Selecionar todas as empresas do município"></td>
+      <td colspan="12"><div class="grupo-conteudo">
+        <button type="button" class="grupo-titulo" data-acao="grupo" data-lote="${esc(chave)}" aria-expanded="${aberto}">
+          <svg class="ic"><use href="#i-seta"/></svg>
+          <strong>${esc(p0.municipio)}${p0.uf ? '/' + esc(p0.uf) : ''}</strong><span class="grupo-ano">${p0.ano}</span>
+        </button>
+        <span class="grupo-info">${plural(n, 'empresa', 'empresas')} · <strong>${moeda(total)}</strong></span>
+        <span class="grupo-chips">
+          ${chip(c.naoIniciado, `${c.naoIniciado} não ${c.naoIniciado === 1 ? 'iniciada' : 'iniciadas'}`, '')}
+          ${chip(c.andamento, `${c.andamento} em andamento`, 'info')}
+          ${chip(c.parado, plural(c.parado, 'parada', 'paradas'), 'alerta')}
+          ${chip(c.pago, plural(c.pago, 'paga', 'pagas'), 'ok')}
+          ${chip(c.impugnado, plural(c.impugnado, 'impugnada', 'impugnadas'), '')}
+          ${chip(c.deferida, plural(c.deferida, 'deferida', 'deferidas'), 'ok')}
+          ${chip(c.auto, plural(c.auto, 'auto de infração', 'autos de infração'), 'erro')}
+        </span>
+        <span class="grupo-barra" title="Distribuição das empresas por situação">
+          ${seg(c.pago + c.deferida, 'ok', 'Encerradas sem auto')}${seg(c.auto, 'erro', 'Auto de infração')}${seg(c.andamento, 'info', 'Em andamento')}${seg(c.naoIniciado, 'nada', 'Não iniciadas')}
+        </span>
+      </div></td>
+    </tr>`;
+  }
+
+  function corpoAgrupado(lista) {
+    const forcar = gruposForcados();
+    return agrupar(lista).map(([chave, itens]) => {
+      const aberto = forcar || estado.abertos.has(chave);
+      return grupoHtml(chave, itens, aberto) + (aberto ? itens.map(linhaHtml).join('') : '');
+    }).join('');
+  }
+
+  function alternarGrupo(chave) {
+    if (gruposForcados()) return; // com busca/filtro de município ativo, tudo fica aberto
+    if (estado.abertos.has(chave)) estado.abertos.delete(chave); else estado.abertos.add(chave);
+    salvarAbertos();
+    renderizar();
+  }
+
+  $('#btn-expandir').addEventListener('click', () => {
+    for (const p of filtrados()) estado.abertos.add(lote(p));
+    salvarAbertos();
+    renderizar();
+  });
+  $('#btn-recolher').addEventListener('click', () => {
+    estado.abertos.clear();
+    salvarAbertos();
+    renderizar();
+  });
+
   function renderizar() {
     const lista = ordenar(filtrados());
     renderizarResumo(lista);
-    $('#tabela tbody').innerHTML = lista.map(linhaHtml).join('');
+    $('#tabela tbody').innerHTML = ehAdmin() ? corpoAgrupado(lista) : lista.map(linhaHtml).join('');
     $('#vazio').hidden = lista.length > 0;
     if (!lista.length) {
       const semDados = !estado.processos.length;
@@ -243,8 +339,10 @@
         ativo ? (estado.ordem.dir === 'asc' ? '#i-asc' : '#i-desc') : '#i-ordenar');
     }
     const total = lista.reduce((s, p) => s + Number(p.calculo), 0);
+    const municipios = new Set(lista.map(lote)).size;
     $('#tabela-rodape').innerHTML = estado.processos.length
-      ? `<span>Exibindo <strong>${lista.length}</strong> de <strong>${estado.processos.length}</strong> empresas</span>
+      ? `<span>Exibindo <strong>${lista.length}</strong> de <strong>${estado.processos.length}</strong> empresas${ehAdmin()
+        ? ` em <strong>${municipios}</strong> ${municipios === 1 ? 'município' : 'municípios'}` : ''}</span>
          <span>Total do cálculo exibido: <strong>${moeda(total)}</strong></span>`
       : '';
     atualizarSelecao();
@@ -326,7 +424,7 @@
     return `<tr class="${classeLinha}">
       ${admin ? `<td><input type="checkbox" data-acao="selecionar" data-id="${p.id}" ${estado.selecionados.has(p.id) ? 'checked' : ''}></td>` : ''}
       <td class="empresa">${admin ? `<button class="link" data-acao="historico" data-id="${p.id}" title="Ver histórico">${esc(p.empresa)}</button>` : esc(p.empresa)}
-        <small>${esc(lote(p))}</small></td>
+        ${admin ? '' : `<small>${esc(lote(p))}</small>`}</td>
       <td class="nowrap mono">${cnpjFmt(p.cnpj)}</td>
       <td class="num nowrap valor">${moeda(p.calculo)}</td>
       ${admin ? `<td><select data-acao="responsavel" data-id="${p.id}">
@@ -382,10 +480,23 @@
         if (el.checked) estado.selecionados.add(id); else estado.selecionados.delete(id);
         atualizarSelecao();
         break;
+      case 'selecionar-grupo':
+        for (const p of filtrados()) {
+          if (lote(p) !== el.dataset.lote) continue;
+          if (el.checked) estado.selecionados.add(p.id); else estado.selecionados.delete(p.id);
+        }
+        renderizar();
+        break;
     }
   });
 
   $('#tabela').addEventListener('click', (e) => {
+    // Linha do município: clicar em qualquer ponto (menos na caixa de seleção) abre/fecha.
+    const grupo = e.target.closest('tr.grupo');
+    if (grupo) {
+      if (!e.target.closest('input')) alternarGrupo(grupo.dataset.lote);
+      return;
+    }
     const el = e.target.closest('button');
     if (!el) return;
     if (el.dataset.ordem) {
@@ -429,6 +540,13 @@
     $('#sel-qtd').textContent = `${n} selecionada${n === 1 ? '' : 's'}`;
     const visiveis = filtrados();
     $('#sel-todos').checked = visiveis.length > 0 && visiveis.every((p) => estado.selecionados.has(p.id));
+    // Caixa do município: marcada (todas), parcial (algumas) ou vazia.
+    for (const cb of $$('#tabela input[data-acao="selecionar-grupo"]')) {
+      const doGrupo = visiveis.filter((p) => lote(p) === cb.dataset.lote);
+      const marcadas = doGrupo.filter((p) => estado.selecionados.has(p.id)).length;
+      cb.checked = marcadas > 0 && marcadas === doGrupo.length;
+      cb.indeterminate = marcadas > 0 && marcadas < doGrupo.length;
+    }
   }
 
   $('#btn-atribuir').addEventListener('click', async () => {

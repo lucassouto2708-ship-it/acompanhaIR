@@ -93,7 +93,11 @@ dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb
    município e ano são ignoradas, então reimportar o mesmo PDF não duplica nada.
 2. **Distribuir** (admin): na aba Acompanhamento, selecione empresas e use **Atribuir**, ou troque
    o responsável linha a linha.
-3. **Acompanhar**: cada usuário marca as etapas das suas empresas. O admin filtra por usuário,
+3. **Acompanhar**: cada usuário marca as etapas das suas empresas. Para o admin, a lista vem
+   **agrupada por município/ano e recolhida**: cada município mostra um resumo (empresas, valor,
+   em andamento, paradas, pagas, impugnadas, autos) e abre ao clicar. A caixa de seleção do
+   município marca todas as empresas dele, para atribuir o município inteiro de uma vez.
+   Busca por texto ou filtro de município abrem os grupos automaticamente. O admin filtra por usuário,
    município ou situação, vê o resumo na aba **Usuários** e clica no nome da empresa para ver o
    histórico de quem marcou o quê e quando.
 4. **Exportar CSV**: baixa a visão filtrada para abrir no Excel.
