@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AcompanhaIR</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Configuração pendente -->
+  <section id="tela-config" class="centro" hidden>
+    <div class="cartao estreito">
+      <h1>AcompanhaIR</h1>
+      <p>Falta configurar o Supabase. Preencha <code>js/config.js</code> com a URL e a chave
+        <em>anon</em> do projeto (veja o README).</p>
+    </div>
+  </section>
+
+  <!-- Login -->
+  <section id="tela-login" class="centro" hidden>
+    <form id="form-login" class="cartao estreito">
+      <h1>AcompanhaIR</h1>
+      <p class="sutil">Acompanhamento das notificações de IRRF</p>
+      <label>E-mail <input type="email" name="email" autocomplete="username" required></label>
+      <label>Senha <input type="password" name="senha" autocomplete="current-password" required></label>
+      <button type="submit" class="primario">Entrar</button>
+      <p id="login-erro" class="erro" hidden></p>
+    </form>
+  </section>
+
+  <!-- Aplicação -->
+  <div id="tela-app" hidden>
+    <header class="topo">
+      <strong class="marca">AcompanhaIR</strong>
+      <nav id="abas">
+        <button data-aba="acompanhamento" class="ativa">Acompanhamento</button>
+        <button data-aba="usuarios" class="so-admin">Usuários</button>
+        <button data-aba="importar" class="so-admin">Importar PDF</button>
+      </nav>
+      <span class="usuario"><span id="usuario-nome"></span> <span id="usuario-papel" class="etiqueta"></span></span>
+      <button id="btn-sair" class="link">Sair</button>
+    </header>
+
+    <main>
+      <!-- Acompanhamento -->
+      <section id="aba-acompanhamento">
+        <div id="resumo" class="resumo"></div>
+
+        <div class="filtros">
+          <input id="f-busca" type="search" placeholder="Buscar empresa ou CNPJ">
+          <select id="f-lote"><option value="">Todos os municípios</option></select>
+          <select id="f-status">
+            <option value="">Todas as situações</option>
+            <option value="andamento">Em andamento</option>
+            <option value="parado">Parados</option>
+            <option value="aguardando_pagamento">Aguardando pagamento</option>
+            <option value="pago">Pagos (encerrados)</option>
+            <option value="impugnado">Impugnados</option>
+            <option value="deferida">Impugnação deferida</option>
+            <option value="auto">Auto de infração</option>
+          </select>
+          <select id="f-responsavel" class="so-admin"><option value="">Todos os responsáveis</option></select>
+          <button id="btn-csv" class="secundario">Exportar CSV</button>
+        </div>
+
+        <div id="barra-selecao" class="barra-selecao so-admin" hidden>
+          <span id="sel-qtd"></span>
+          <select id="sel-responsavel"></select>
+          <button id="btn-atribuir" class="primario">Atribuir</button>
+          <button id="btn-excluir" class="perigo">Excluir</button>
+        </div>
+
+        <div class="tabela-rolagem">
+          <table id="tabela">
+            <thead>
+              <tr>
+                <th class="so-admin"><input type="checkbox" id="sel-todos" title="Selecionar todos"></th>
+                <th>Empresa</th>
+                <th>CNPJ</th>
+                <th class="num">Cálculo</th>
+                <th class="so-admin">Responsável</th>
+                <th class="etapa">Notificação<br>elaboração</th>
+                <th class="etapa">Entrega<br>município</th>
+                <th class="etapa">Remessa notif.<br>c/ guia</th>
+                <th class="etapa">Pagamento</th>
+                <th class="etapa">Impugnação</th>
+                <th class="etapa">Resposta<br>impugnação</th>
+                <th class="etapa">Auto de<br>infração</th>
+                <th>Situação</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <p id="vazio" class="sutil" hidden>Nenhuma empresa encontrada.</p>
+        </div>
+      </section>
+
+      <!-- Usuários (admin) -->
+      <section id="aba-usuarios" hidden>
+        <p class="sutil">Os usuários são criados no painel do Supabase (Authentication → Users → Add user).
+          Aqui você acompanha o andamento de cada um.</p>
+        <div class="tabela-rolagem">
+          <table id="tabela-usuarios">
+            <thead>
+              <tr>
+                <th>Nome</th><th>E-mail</th><th>Papel</th>
+                <th class="num">Empresas</th><th class="num">Valor</th>
+                <th class="num">Em andamento</th><th class="num">Parados</th>
+                <th class="num">Pagos</th><th class="num">Autos</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Importar PDF (admin) -->
+      <section id="aba-importar" hidden>
+        <div class="cartao">
+          <h2>Importar relatório geral (PDF)</h2>
+          <p class="sutil">Selecione o "Relatório geral — Notificações de inconsistência de IRRF".
+            Empresa, CNPJ e cálculo (coluna Diferença) são lidos automaticamente; confira antes de salvar.</p>
+          <input id="arquivo-pdf" type="file" accept="application/pdf">
+        </div>
+        <div id="previa" hidden>
+          <div class="cartao">
+            <div id="previa-cabecalho"></div>
+            <ul id="previa-avisos" class="avisos"></ul>
+            <div class="linha-acoes">
+              <label>Responsável:
+                <select id="imp-responsavel"></select>
+              </label>
+              <button id="btn-importar" class="primario"></button>
+            </div>
+          </div>
+          <div class="tabela-rolagem">
+            <table id="tabela-previa">
+              <thead>
+                <tr><th><input type="checkbox" id="imp-todos" checked></th><th>#</th><th>Empresa</th><th>CNPJ</th><th class="num">Cálculo</th><th></th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Resposta da impugnação -->
+  <dialog id="dlg-resposta">
+    <form method="dialog" id="form-resposta">
+      <h2>Resposta da impugnação</h2>
+      <p id="resp-empresa" class="sutil"></p>
+      <label>Resultado
+        <select name="resultado" required>
+          <option value="">Selecione…</option>
+          <option value="deferida">Deferida (encerra o processo)</option>
+          <option value="parcial">Parcialmente deferida</option>
+          <option value="indeferida">Indeferida</option>
+        </select>
+      </label>
+      <label>Data da resposta <input type="date" name="data" required></label>
+      <label>Teor da resposta
+        <textarea name="teor" rows="8" required placeholder="Resumo dos fundamentos e da decisão"></textarea>
+      </label>
+      <div class="linha-acoes">
+        <button type="button" id="resp-remover" class="perigo">Remover resposta</button>
+        <span class="espaco"></span>
+        <button type="button" id="resp-cancelar" class="secundario">Cancelar</button>
+        <button type="submit" id="resp-salvar" class="primario">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Histórico (admin) -->
+  <dialog id="dlg-historico">
+    <h2>Histórico</h2>
+    <p id="hist-empresa" class="sutil"></p>
+    <ul id="hist-lista" class="historico"></ul>
+    <div class="linha-acoes"><span class="espaco"></span>
+      <button type="button" class="secundario" onclick="this.closest('dialog').close()">Fechar</button></div>
+  </dialog>
+
+  <div id="aviso" class="aviso" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/pdf-parser.js"></script>
+  <script src="js/fluxo.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
