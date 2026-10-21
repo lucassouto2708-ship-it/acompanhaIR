@@ -83,13 +83,27 @@
     const f = e.target;
     const erro = $('#login-erro');
     erro.hidden = true;
-    f.querySelector('button').disabled = true;
+    const entrar = f.querySelector('button[type="submit"]');
+    entrar.disabled = true;
     const { error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.senha.value });
-    f.querySelector('button').disabled = false;
+    entrar.disabled = false;
+    if (!error) mostrarSenha(false);
     if (error) {
       erro.textContent = 'E-mail ou senha inválidos.';
       erro.hidden = false;
     }
+  });
+
+  function mostrarSenha(visivel) {
+    const b = $('#btn-ver-senha');
+    $('#login-senha').type = visivel ? 'text' : 'password';
+    b.setAttribute('aria-pressed', String(visivel));
+    b.title = visivel ? 'Ocultar senha' : 'Mostrar senha';
+    b.setAttribute('aria-label', b.title);
+  }
+  $('#btn-ver-senha').addEventListener('click', () => {
+    mostrarSenha($('#login-senha').type === 'password');
+    $('#login-senha').focus();
   });
 
   $('#btn-sair').addEventListener('click', () => sb.auth.signOut());
@@ -343,6 +357,11 @@
     const id = Number(el.dataset.id);
     switch (el.dataset.acao) {
       case 'etapa':
+        // Desmarcar apaga a data registrada: pede confirmação para evitar clique acidental.
+        if (!el.checked && !confirm(`Desmarcar "${ROTULOS[el.dataset.campo]}"? A data registrada será apagada.`)) {
+          el.checked = true;
+          return;
+        }
         el.disabled = true;
         atualizar(id, { [el.dataset.campo]: el.checked ? new Date().toISOString() : null });
         break;

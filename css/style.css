@@ -128,8 +128,27 @@ select { padding-right: 28px; }
 input:focus, select:focus, textarea:focus {
   outline: none; border-color: var(--primaria); box-shadow: 0 0 0 3px var(--foco);
 }
-input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--primaria); cursor: pointer; }
-input[type="checkbox"]:disabled { cursor: not-allowed; opacity: .4; }
+/* Caixas de seleção desenhadas (mesmo visual em todos os navegadores e temas) */
+input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none;
+  display: inline-block; vertical-align: middle; flex: none;
+  width: 18px; height: 18px; margin: 0;
+  border: 1.5px solid var(--borda-forte); border-radius: 3px;
+  background: var(--superficie); cursor: pointer;
+  transition: background-color .12s, border-color .12s;
+}
+input[type="checkbox"]:checked {
+  border-color: var(--primaria);
+  background: var(--primaria) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 72% no-repeat;
+}
+input[type="checkbox"]:hover:not(:disabled) { border-color: var(--primaria); }
+input[type="checkbox"]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--foco); }
+/* Bloqueada (etapa anterior pendente): tracejada, sem preenchimento */
+input[type="checkbox"]:disabled:not(:checked) {
+  cursor: not-allowed; border-style: dashed; background: var(--superficie-2); opacity: .7;
+}
+/* Concluída e travada (etapa seguinte já feita): continua com cara de "feito" */
+input[type="checkbox"]:disabled:checked { cursor: default; opacity: .6; }
 
 .campo { display: grid; gap: 4px; font-size: 12px; font-weight: 500; color: var(--sutil); }
 .campo input, .campo select, .campo textarea { font-size: 13.5px; font-weight: 400; }
@@ -188,6 +207,12 @@ button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--foco); }
 .acesso-corpo { display: grid; gap: 12px; padding: 24px; }
 .acesso-corpo h1 { font-size: 16px; margin-bottom: 4px; }
 .acesso-corpo .primario { margin-top: 4px; height: 36px; }
+.senha-campo { position: relative; display: flex; }
+.senha-campo input { flex: 1; padding-right: 40px; }
+.senha-campo .icone { position: absolute; right: 1px; top: 1px; height: 30px; }
+.senha-campo .olho-fechado { display: none; }
+.senha-campo [aria-pressed="true"] .olho-aberto { display: none; }
+.senha-campo [aria-pressed="true"] .olho-fechado { display: block; }
 .acesso-rodape {
   display: flex; align-items: center; gap: 8px;
   padding: 12px 24px; border-top: 1px solid var(--borda);
@@ -308,7 +333,18 @@ main > section { display: grid; gap: 16px; }
 .grade td.empresa small { margin-top: 2px; }
 .grade td select { height: 28px; max-width: 160px; font-size: 12.5px; }
 .col-sel { width: 36px; }
-.check { display: inline-grid; justify-items: center; gap: 2px; cursor: pointer; }
+/* Célula de etapa: a área inteira é clicável, não só a caixinha */
+.grade td.etapa { padding: 3px 4px; }
+.check {
+  display: inline-grid; justify-items: center; align-content: center; gap: 3px;
+  min-width: 72px; min-height: 44px; padding: 4px 6px;
+  border-radius: var(--raio); cursor: pointer;
+}
+.check input[type="checkbox"] { width: 22px; height: 22px; border-radius: 4px; }
+.check:hover:has(input:not(:disabled)) { background: var(--azul-claro); }
+.check:hover:has(input:not(:disabled)) input { border-color: var(--primaria); }
+.check:has(input:disabled) { cursor: default; }
+.check:has(input:disabled:not(:checked)) { cursor: not-allowed; }
 .traco { color: var(--borda-forte); }
 td.valor { font-weight: 600; }
 
