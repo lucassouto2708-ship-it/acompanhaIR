@@ -591,3 +591,12 @@ input[type="checkbox"]:indeterminate {
   font-size: 12px; font-weight: 500; color: var(--sutil); cursor: default;
 }
 .grupo-resp select { height: 26px; font-size: 12.5px; max-width: 200px; }
+
+/* ---------------------------------------------------------------- prévia: PDF antigo com texto cortado */
+#tabela-previa .campo-nome { width: 100%; min-width: 260px; height: 28px; font-size: 12.5px; }
+#tabela-previa .campo-cnpj { width: 170px; height: 28px; font-size: 12.5px; }
+#tabela-previa .campo-cnpj.invalido { border-color: var(--atencao); background: var(--atencao-fundo); }
+#tabela-previa small { margin-top: 3px; }
+#tabela-previa small.ok { color: var(--ok); }
+#tabela-previa small .link { font-size: 11px; margin-left: 4px; }
+.grade tbody tr.linha-pendente td:first-child { box-shadow: inset 3px 0 0 var(--atencao); }

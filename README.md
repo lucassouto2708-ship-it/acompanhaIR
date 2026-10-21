@@ -91,6 +91,11 @@ dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb
    relatório. Município, UF e ano ficam em campos editáveis: se o PDF não trouxer o ano (ou
    qualquer um deles), digite. Escolha o responsável e clique em **Importar**. Empresas que já existem no mesmo
    município e ano são ignoradas, então reimportar o mesmo PDF não duplica nada.
+   **PDFs gerados por versões antigas do IRnotas** cortavam o texto que não cabia na coluna. O sistema
+   recalcula o último dígito do CNPJ pelo dígito verificador (conferindo com o penúltimo),
+   completa os nomes cortados pela Receita Federal (BrasilAPI, com alternativas) e, quando o CNPJ
+   veio ilegível, pede para digitá-lo na prévia. Nomes e CNPJs dessas linhas podem ser editados
+   antes de importar.
 2. **Distribuir** (admin): na aba Acompanhamento, selecione empresas e use **Atribuir**, ou troque
    o responsável linha a linha.
 3. **Acompanhar**: cada usuário marca as etapas das suas empresas. Para o admin, a lista vem

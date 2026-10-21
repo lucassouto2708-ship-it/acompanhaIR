@@ -803,6 +803,7 @@
 
   const dropzone = $('#dropzone');
   const TEXTO_DROPZONE = $('#dropzone-texto').innerHTML;
+  const TEXTO_STATUS = $('#imp-status').innerHTML;
 
   $('#arquivo-pdf').addEventListener('change', (e) => processarArquivo(e.target.files[0]));
 
@@ -828,6 +829,7 @@
       if (!r.empresas.length) throw new Error('Nenhuma empresa encontrada no PDF.');
       r.arquivo = arquivo.name;
       r.lidoEm = new Date();
+      $('#imp-status').innerHTML = TEXTO_STATUS;
       // Município, UF e ano vêm do PDF quando existem, mas sempre podem ser digitados.
       $('#imp-municipio').value = r.municipio || '';
       $('#imp-uf').value = r.uf || '';
@@ -837,6 +839,8 @@
       renderizarPrevia();
       if (!r.municipio) $('#imp-municipio').focus();
       else if (!r.ano) $('#imp-ano').focus();
+      // PDFs antigos cortavam o nome do credor: completa pela Receita os que tiveram o CNPJ recuperado.
+      completarNomes(r, r.empresas.filter((e) => e.cnpjStatus === 'recuperado'));
     } catch (err) {
       estado.importacao = null;
       $('#previa').hidden = true;
@@ -871,7 +875,7 @@
     estado.importacao.empresas.forEach((emp) => {
       const antes = emp.existente;
       emp.existente = jaTem.has(emp.cnpj);
-      if (emp.incluir === undefined || antes !== emp.existente) emp.incluir = !emp.existente;
+      if (emp.incluir === undefined || antes !== emp.existente) emp.incluir = !emp.existente && cnpjOk(emp);
     });
   }
 
@@ -896,30 +900,176 @@
       ficha('Total do relatório', r.totalDiferencaDeclarado !== null ? moeda(r.totalDiferencaDeclarado) : 'não informado') +
       ficha('Lido em', r.lidoEm ? r.lidoEm.toLocaleString('pt-BR') : '—');
     $('#previa-avisos').innerHTML = r.avisos.map((a) => `<li>${esc(a)}</li>`).join('');
-    $('#tabela-previa tbody').innerHTML = r.empresas.map((emp, i) => `<tr class="${emp.existente ? 'encerrado' : ''}">
-      <td><input type="checkbox" data-i="${i}" ${emp.incluir ? 'checked' : ''} ${emp.existente ? 'disabled' : ''}></td>
-      <td class="num">${emp.numero ?? ''}</td><td>${esc(emp.empresa)}</td><td class="nowrap mono">${cnpjFmt(emp.cnpj)}</td>
-      <td class="num nowrap valor">${moeda(emp.calculo)}</td>
-      <td>${emp.existente ? '<span class="etiqueta">já cadastrada</span>' : ''}</td></tr>`).join('');
+    $('#tabela-previa tbody').innerHTML = r.empresas.map(linhaPreviaHtml).join('');
     atualizarBotaoImportar();
   }
 
+  const cnpjOk = (emp) => PdfParser.cnpjValido(emp.cnpj);
+  // PDF antigo (texto cortado): nome e CNPJ podem ser corrigidos na prévia.
+  const editavel = (emp) => emp.cnpjStatus && emp.cnpjStatus !== 'ok';
+
+  function linhaPreviaHtml(emp, i) {
+    const valido = cnpjOk(emp);
+    const cnpj = editavel(emp) && (!valido || emp.cnpjStatus === 'manual')
+      ? `<input type="text" class="mono campo-cnpj ${valido ? '' : 'invalido'}" data-cnpj="${i}" inputmode="numeric"
+          value="${esc(valido ? cnpjFmt(emp.cnpj) : '')}" placeholder="CNPJ (no PDF: ${esc(emp.cnpjLido || 'vazio')})">`
+      : `${cnpjFmt(emp.cnpj)}${emp.cnpjStatus === 'recuperado'
+        ? ' <span class="etiqueta info" title="O PDF trazia só 13 dígitos; o último foi recalculado pelo dígito verificador.">dígito recalculado</span>' : ''}`;
+    const nome = editavel(emp)
+      ? `<input type="text" class="campo-nome" data-nome="${i}" value="${esc(emp.empresa)}">
+         ${emp.nomeCompletado ? `<small class="ok">Completado pela Receita (no PDF: ${esc(emp.nomePdf)})</small>` : ''}
+         ${emp.nomeReceita ? `<small>Receita: ${esc(emp.nomeReceita)}
+           <button type="button" class="link" data-usar-nome="${i}">usar este nome</button></small>` : ''}
+         ${emp.buscandoNome ? '<small><span class="girando"></span>consultando a Receita…</small>' : ''}`
+      : esc(emp.empresa);
+    return `<tr class="${emp.existente ? 'encerrado' : ''} ${editavel(emp) && !valido ? 'linha-pendente' : ''}">
+      <td><input type="checkbox" data-i="${i}" ${emp.incluir ? 'checked' : ''} ${emp.existente || !valido ? 'disabled' : ''}></td>
+      <td class="num">${emp.numero ?? ''}</td><td>${nome}</td><td class="nowrap mono">${cnpj}</td>
+      <td class="num nowrap valor">${moeda(emp.calculo)}</td>
+      <td>${emp.existente ? '<span class="etiqueta">já cadastrada</span>'
+        : !valido ? '<span class="etiqueta alerta">informe o CNPJ</span>' : ''}</td></tr>`;
+  }
+
+  // Atualiza uma linha da prévia; não mexe na linha em que a pessoa está digitando (a não ser forçado).
+  function atualizarLinhaPrevia(r, emp, forcar = false) {
+    if (estado.importacao !== r) return;
+    const i = r.empresas.indexOf(emp);
+    const tr = $('#tabela-previa tbody').rows[i];
+    if (tr && (forcar || !tr.contains(document.activeElement))) tr.outerHTML = linhaPreviaHtml(emp, i);
+  }
+
+  // ---- Consulta do nome (razão social) na Receita, com fallback entre APIs públicas
+  const FONTES_CNPJ = [
+    (c) => `https://brasilapi.com.br/api/cnpj/v1/${c}`,
+    (c) => `https://minhareceita.org/${c}`,
+    (c) => `https://publica.cnpj.ws/cnpj/${c}`,
+  ];
+
+  async function razaoSocial(cnpj) {
+    for (const url of FONTES_CNPJ) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      try {
+        const resp = await fetch(url(cnpj), { signal: ctrl.signal });
+        if (resp.status === 404) return null;
+        if (!resp.ok) continue;
+        const d = await resp.json();
+        if (d.razao_social) return String(d.razao_social).trim();
+      } catch (e) {
+        /* tenta a próxima fonte */
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    throw new Error('indisponível');
+  }
+
+  const normalizarNome = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+
+  async function completarNomes(r, alvos) {
+    if (!alvos.length) return;
+    let feitos = 0;
+    let completados = 0;
+    let falhasSeguidas = 0;
+    let parar = false;
+    const status = () => {
+      if (estado.importacao !== r) return;
+      $('#imp-status').innerHTML = feitos < alvos.length && !parar
+        ? `<span class="girando"></span>Completando nomes pela Receita Federal… ${feitos}/${alvos.length}`
+        : `Nomes completados pela Receita: ${completados} de ${alvos.length}. Confira e ajuste se necessário.`;
+      atualizarBotaoImportar();
+    };
+    r.buscandoNomes = true;
+    alvos.forEach((emp) => { emp.buscandoNome = true; atualizarLinhaPrevia(r, emp); });
+    status();
+    const fila = [...alvos];
+    const trabalhador = async () => {
+      while (fila.length && !parar && estado.importacao === r) {
+        const emp = fila.shift();
+        try {
+          const nome = await razaoSocial(emp.cnpj);
+          falhasSeguidas = 0;
+          if (nome && normalizarNome(nome) !== normalizarNome(emp.empresa)) {
+            // Só troca sozinho quando o nome do PDF é o começo do nome da Receita (corte);
+            // senão mostra o nome da Receita como sugestão.
+            if (emp.cnpjStatus === 'manual' || normalizarNome(nome).startsWith(normalizarNome(emp.empresa))) {
+              emp.nomePdf = emp.nomePdf || emp.empresa;
+              emp.empresa = nome;
+              emp.nomeCompletado = true;
+              emp.nomeReceita = null;
+              completados++;
+            } else {
+              emp.nomeReceita = nome;
+            }
+          }
+        } catch (e) {
+          if (++falhasSeguidas >= 3) {
+            parar = true;
+            avisar('Os serviços de consulta de CNPJ não responderam. Confira os nomes cortados manualmente.');
+          }
+        }
+        emp.buscandoNome = false;
+        feitos++;
+        atualizarLinhaPrevia(r, emp);
+        status();
+      }
+    };
+    await Promise.all([trabalhador(), trabalhador(), trabalhador()]);
+    alvos.forEach((emp) => { if (emp.buscandoNome) { emp.buscandoNome = false; atualizarLinhaPrevia(r, emp); } });
+    r.buscandoNomes = false;
+    status();
+  }
+
   function atualizarBotaoImportar() {
-    const n = estado.importacao.empresas.filter((e) => e.incluir).length;
-    $('#btn-importar').textContent = `Importar ${n} empresa${n === 1 ? '' : 's'}`;
-    $('#btn-importar').disabled = n === 0;
-    const disponiveis = estado.importacao.empresas.filter((e) => !e.existente);
+    const r = estado.importacao;
+    const n = r.empresas.filter((e) => e.incluir).length;
+    const pendentes = r.empresas.filter((e) => !e.existente && !cnpjOk(e)).length;
+    $('#btn-importar').textContent = r.buscandoNomes ? 'Aguarde: completando nomes…'
+      : `Importar ${n} empresa${n === 1 ? '' : 's'}${pendentes ? ` (${pendentes} sem CNPJ)` : ''}`;
+    $('#btn-importar').disabled = n === 0 || !!r.buscandoNomes;
+    const disponiveis = r.empresas.filter((e) => !e.existente && cnpjOk(e));
     $('#imp-todos').checked = disponiveis.length > 0 && disponiveis.every((e) => e.incluir);
   }
 
-  $('#tabela-previa').addEventListener('change', (e) => {
-    if (e.target.id === 'imp-todos') {
-      estado.importacao.empresas.forEach((emp) => { if (!emp.existente) emp.incluir = e.target.checked; });
+  $('#tabela-previa').addEventListener('change', async (e) => {
+    const r = estado.importacao;
+    const el = e.target;
+    if (el.id === 'imp-todos') {
+      r.empresas.forEach((emp) => { if (!emp.existente && cnpjOk(emp)) emp.incluir = el.checked; });
       renderizarPrevia();
-    } else if (e.target.dataset.i) {
-      estado.importacao.empresas[Number(e.target.dataset.i)].incluir = e.target.checked;
+    } else if (el.dataset.i) {
+      r.empresas[Number(el.dataset.i)].incluir = el.checked;
       atualizarBotaoImportar();
+    } else if (el.dataset.nome) {
+      const emp = r.empresas[Number(el.dataset.nome)];
+      emp.empresa = el.value.trim().replace(/\s+/g, ' ').toUpperCase() || emp.empresa;
+      el.value = emp.empresa;
+    } else if (el.dataset.cnpj) {
+      const emp = r.empresas[Number(el.dataset.cnpj)];
+      const d = el.value.replace(/\D/g, '');
+      if (!PdfParser.cnpjValido(d)) {
+        el.classList.add('invalido');
+        return avisar('CNPJ inválido: confira os 14 dígitos.');
+      }
+      emp.cnpj = d;
+      emp.cnpjStatus = 'manual';
+      emp.incluir = undefined;
+      await marcarExistentes();
+      renderizarPrevia();
+      completarNomes(r, [emp]);
     }
+  });
+
+  $('#tabela-previa').addEventListener('click', (e) => {
+    const i = e.target.dataset.usarNome;
+    if (i === undefined) return;
+    const emp = estado.importacao.empresas[Number(i)];
+    emp.nomePdf = emp.nomePdf || emp.empresa;
+    emp.empresa = emp.nomeReceita;
+    emp.nomeReceita = null;
+    emp.nomeCompletado = true;
+    atualizarLinhaPrevia(estado.importacao, emp, true);
   });
 
   $('#btn-importar').addEventListener('click', async () => {
@@ -944,6 +1094,7 @@
     $('#previa').hidden = true;
     $('#arquivo-pdf').value = '';
     $('#dropzone-texto').innerHTML = TEXTO_DROPZONE;
+    $('#imp-status').innerHTML = TEXTO_STATUS;
     await carregar();
     trocarAba('acompanhamento');
   });
