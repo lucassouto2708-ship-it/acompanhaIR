@@ -29,31 +29,7 @@
   color-scheme: light;
 }
 
-/* Tema escuro: grafite/azul profundo, sem preto absoluto. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="claro"]) {
-    --fundo: #161B22;
-    --superficie: #1E242C;
-    --superficie-2: #232A33;
-    --texto: #E3E7EC;
-    --sutil: #98A2AE;
-    --borda: #2F3843;
-    --borda-forte: #3D4754;
-    --primaria: #5B8FD1;
-    --primaria-hover: #78A4DB;
-    --primaria-texto: #0F1722;
-    --azul-claro: #1F3049;
-    --ok: #4CB98A;
-    --ok-fundo: #173328;
-    --atencao: #D9A24A;
-    --atencao-fundo: #352A16;
-    --erro: #E2685B;
-    --erro-fundo: #3A201D;
-    --foco: rgba(91, 143, 209, .35);
-    --sombra: none;
-    color-scheme: dark;
-  }
-}
+/* Tema escuro (só quando escolhido no botão): grafite/azul profundo, sem preto absoluto. */
 :root[data-theme="escuro"] {
   --fundo: #161B22;
   --superficie: #1E242C;
@@ -245,10 +221,6 @@ button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--foco); }
 .tema-escuro { display: none; }
 :root[data-theme="escuro"] .tema-claro { display: none; }
 :root[data-theme="escuro"] .tema-escuro { display: block; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .tema-claro { display: none; }
-  :root:not([data-theme]) .tema-escuro { display: block; }
-}
 
 /* ---------------------------------------------------------------- abas */
 .abas { border-top: 1px solid var(--borda); }

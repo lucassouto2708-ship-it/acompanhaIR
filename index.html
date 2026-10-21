@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AcompanhaIR</title>
   <script>
-    // Aplica o tema salvo antes de desenhar a página (evita "piscar").
+    // Tema claro é o padrão; o escuro só entra se a pessoa escolheu no botão de tema.
+    // Aplicado antes de desenhar a página para não "piscar".
+    document.documentElement.dataset.theme = 'claro';
     try {
-      const t = localStorage.getItem('acompanhair-tema');
-      if (t === 'claro' || t === 'escuro') document.documentElement.dataset.theme = t;
-    } catch (e) { /* sem armazenamento: segue o tema do sistema */ }
+      if (localStorage.getItem('acompanhair-tema') === 'escuro') document.documentElement.dataset.theme = 'escuro';
+    } catch (e) { /* sem armazenamento: fica no claro */ }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=1.10">
+  <link rel="stylesheet" href="css/style.css?v=1.11">
 </head>
 <body>
   <!-- Ícones (Lucide, MIT) -->
@@ -92,7 +93,7 @@
           <div><strong>AcompanhaIR</strong><small>Acompanhamento de notificações de IRRF</small></div>
         </div>
         <div class="topo-direita">
-          <span class="versao">v1.10</span>
+          <span class="versao">v1.11</span>
           <button id="btn-tema" class="icone" type="button" title="Alternar tema claro/escuro">
             <svg class="ic tema-claro"><use href="#i-lua"/></svg>
             <svg class="ic tema-escuro"><use href="#i-sol"/></svg>
@@ -344,9 +345,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="js/config.js?v=1.10"></script>
-  <script src="js/pdf-parser.js?v=1.10"></script>
-  <script src="js/fluxo.js?v=1.10"></script>
-  <script src="js/app.js?v=1.10"></script>
+  <script src="js/config.js?v=1.11"></script>
+  <script src="js/pdf-parser.js?v=1.11"></script>
+  <script src="js/fluxo.js?v=1.11"></script>
+  <script src="js/app.js?v=1.11"></script>
 </body>
 </html>

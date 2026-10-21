@@ -44,13 +44,10 @@
     for (const t of ['tela-config', 'tela-login', 'tela-app']) $('#' + t).hidden = t !== id;
   }
 
-  // Alternador de tema: sem escolha salva, segue o tema do sistema operacional.
+  // Alternador de tema (padrão: claro). A escolha fica salva no navegador.
   $('#btn-tema').addEventListener('click', () => {
     const raiz = document.documentElement;
-    const escuroAtual = raiz.dataset.theme
-      ? raiz.dataset.theme === 'escuro'
-      : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    raiz.dataset.theme = escuroAtual ? 'claro' : 'escuro';
+    raiz.dataset.theme = raiz.dataset.theme === 'escuro' ? 'claro' : 'escuro';
     try { localStorage.setItem('acompanhair-tema', raiz.dataset.theme); } catch (e) { /* ignora */ }
   });
 
