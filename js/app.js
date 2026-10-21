@@ -336,7 +336,7 @@
     let anterior = null;
     return agrupar(lista).map(([chave, itens]) => {
       const aberto = forcar || estado.abertos.has(chave);
-      // Mesmo município em outro ano: o nome não se repete, só o ano.
+      // Mesmo município em outro ano: nome em tom mais claro, para os anos ficarem visualmente juntos.
       const mesmo = anterior === itens[0].municipio + '/' + itens[0].uf;
       anterior = itens[0].municipio + '/' + itens[0].uf;
       return grupoHtml(chave, itens, aberto, mesmo) + (aberto ? itens.map(linhaHtml).join('') : '');

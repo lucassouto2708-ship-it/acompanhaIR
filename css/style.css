@@ -561,7 +561,7 @@ body.admin #tabela tbody tr.grupo:hover td { background: var(--azul-claro); }
 body.admin #tabela tbody tr.grupo.aberto td { background: var(--azul-claro); border-bottom: 1px solid var(--primaria); }
 /* Separador mais forte entre municípios diferentes; anos do mesmo município ficam juntos */
 body.admin #tabela tbody tr.grupo:not(.mesmo-municipio) td { border-top: 1px solid var(--borda-forte); }
-body.admin #tabela tbody tr.grupo.mesmo-municipio .grupo-nome strong { visibility: hidden; }
+body.admin #tabela tbody tr.grupo.mesmo-municipio .grupo-nome strong { color: var(--sutil); font-weight: 500; }
 
 .grupo-nome { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .grupo-nome .seta { width: 15px; height: 15px; color: var(--sutil); transition: transform .15s; flex: none; }
