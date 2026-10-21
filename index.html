@@ -4,147 +4,249 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AcompanhaIR</title>
+  <script>
+    // Aplica o tema salvo antes de desenhar a página (evita "piscar").
+    try {
+      const t = localStorage.getItem('acompanhair-tema');
+      if (t === 'claro' || t === 'escuro') document.documentElement.dataset.theme = t;
+    } catch (e) { /* sem armazenamento: segue o tema do sistema */ }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- Ícones (Lucide, MIT) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+      <symbol id="i-documento" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+      <symbol id="i-lista" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></symbol>
+      <symbol id="i-usuarios" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+      <symbol id="i-sair" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+      <symbol id="i-sol" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+      <symbol id="i-lua" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+      <symbol id="i-fechar" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+      <symbol id="i-historico" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol>
+      <symbol id="i-alerta" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+      <symbol id="i-vazio" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+      <symbol id="i-ordenar" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></symbol>
+      <symbol id="i-asc" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></symbol>
+      <symbol id="i-desc" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></symbol>
+      <symbol id="i-cadeado" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+      <symbol id="i-lixeira" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    </defs>
+  </svg>
+
   <!-- Configuração pendente -->
-  <section id="tela-config" class="centro" hidden>
-    <div class="cartao estreito">
-      <h1>AcompanhaIR</h1>
-      <p>Falta configurar o Supabase. Preencha <code>js/config.js</code> com a URL e a
-        chave publicável do projeto (veja o README).</p>
+  <section id="tela-config" class="tela-acesso" hidden>
+    <div class="acesso-painel">
+      <div class="acesso-marca"><span class="marca-selo">IR</span>
+        <div><strong>AcompanhaIR</strong><small>Acompanhamento de notificações de IRRF</small></div></div>
+      <div class="acesso-corpo">
+        <h1>Configuração pendente</h1>
+        <p>Falta configurar o Supabase. Preencha <code>js/config.js</code> com a URL e a
+          chave publicável do projeto (veja o README).</p>
+      </div>
     </div>
   </section>
 
   <!-- Login -->
-  <section id="tela-login" class="centro" hidden>
-    <form id="form-login" class="cartao estreito">
-      <h1>AcompanhaIR</h1>
-      <p class="sutil">Acompanhamento das notificações de IRRF</p>
-      <label>E-mail <input type="email" name="email" autocomplete="username" required></label>
-      <label>Senha <input type="password" name="senha" autocomplete="current-password" required></label>
-      <button type="submit" class="primario">Entrar</button>
-      <p id="login-erro" class="erro" hidden></p>
+  <section id="tela-login" class="tela-acesso" hidden>
+    <form id="form-login" class="acesso-painel">
+      <div class="acesso-marca"><span class="marca-selo">IR</span>
+        <div><strong>AcompanhaIR</strong><small>Acompanhamento de notificações de IRRF</small></div></div>
+      <div class="acesso-corpo">
+        <h1>Acesso ao sistema</h1>
+        <label class="campo">E-mail <input type="email" name="email" autocomplete="username" required></label>
+        <label class="campo">Senha <input type="password" name="senha" autocomplete="current-password" required></label>
+        <button type="submit" class="primario bloco">Entrar</button>
+        <p id="login-erro" class="erro" hidden></p>
+      </div>
+      <p class="acesso-rodape"><svg class="ic"><use href="#i-cadeado"/></svg>
+        Acesso restrito a usuários cadastrados pelo administrador.</p>
     </form>
   </section>
 
   <!-- Aplicação -->
   <div id="tela-app" hidden>
     <header class="topo">
-      <strong class="marca">AcompanhaIR</strong>
-      <nav id="abas">
-        <button data-aba="acompanhamento" class="ativa">Acompanhamento</button>
-        <button data-aba="usuarios" class="so-admin">Usuários</button>
-        <button data-aba="importar" class="so-admin">Importar PDF</button>
+      <div class="topo-interno">
+        <div class="marca">
+          <span class="marca-selo">IR</span>
+          <div><strong>AcompanhaIR</strong><small>Acompanhamento de notificações de IRRF</small></div>
+        </div>
+        <div class="topo-direita">
+          <span class="versao">v1.3</span>
+          <button id="btn-tema" class="icone" type="button" title="Alternar tema claro/escuro">
+            <svg class="ic tema-claro"><use href="#i-lua"/></svg>
+            <svg class="ic tema-escuro"><use href="#i-sol"/></svg>
+          </button>
+          <span class="usuario"><span id="usuario-nome"></span> <span id="usuario-papel" class="etiqueta"></span></span>
+          <button id="btn-sair" class="secundario compacto" type="button"><svg class="ic"><use href="#i-sair"/></svg>Sair</button>
+        </div>
+      </div>
+      <nav id="abas" class="abas">
+        <div class="topo-interno">
+          <button data-aba="acompanhamento" class="ativa"><svg class="ic"><use href="#i-lista"/></svg>Acompanhamento</button>
+          <button data-aba="usuarios" class="so-admin"><svg class="ic"><use href="#i-usuarios"/></svg>Usuários</button>
+          <button data-aba="importar" class="so-admin"><svg class="ic"><use href="#i-upload"/></svg>Importar PDF</button>
+        </div>
       </nav>
-      <span class="usuario"><span id="usuario-nome"></span> <span id="usuario-papel" class="etiqueta"></span></span>
-      <button id="btn-sair" class="link">Sair</button>
     </header>
 
     <main>
       <!-- Acompanhamento -->
       <section id="aba-acompanhamento">
+        <div class="cabecalho-pagina">
+          <div>
+            <h1>Acompanhamento das notificações</h1>
+            <p>Andamento de cada empresa notificada: notificação, entrega, guia, pagamento e fase de impugnação.</p>
+          </div>
+        </div>
+
         <div id="resumo" class="resumo"></div>
 
-        <div class="filtros">
-          <input id="f-busca" type="search" placeholder="Buscar empresa ou CNPJ">
-          <select id="f-lote"><option value="">Todos os municípios</option></select>
-          <select id="f-status">
-            <option value="">Todas as situações</option>
-            <option value="andamento">Em andamento</option>
-            <option value="parado">Parados</option>
-            <option value="aguardando_pagamento">Aguardando pagamento</option>
-            <option value="pago">Pagos (encerrados)</option>
-            <option value="impugnado">Impugnados</option>
-            <option value="deferida">Impugnação deferida</option>
-            <option value="auto">Auto de infração</option>
-          </select>
-          <select id="f-responsavel" class="so-admin"><option value="">Todos os responsáveis</option></select>
-          <button id="btn-csv" class="secundario">Exportar CSV</button>
-        </div>
+        <div class="painel">
+          <div class="barra-ferramentas">
+            <label class="busca">
+              <svg class="ic"><use href="#i-busca"/></svg>
+              <input id="f-busca" type="search" placeholder="Buscar por empresa ou CNPJ">
+            </label>
+            <select id="f-lote"><option value="">Todos os municípios</option></select>
+            <select id="f-status">
+              <option value="">Todas as situações</option>
+              <option value="andamento">Em andamento</option>
+              <option value="parado">Parados</option>
+              <option value="aguardando_pagamento">Aguardando pagamento</option>
+              <option value="pago">Pagos (encerrados)</option>
+              <option value="impugnado">Impugnados</option>
+              <option value="deferida">Impugnação deferida</option>
+              <option value="auto">Auto de infração</option>
+            </select>
+            <select id="f-responsavel" class="so-admin"><option value="">Todos os responsáveis</option></select>
+            <span class="espaco"></span>
+            <button id="btn-csv" class="secundario" type="button"><svg class="ic"><use href="#i-download"/></svg>Exportar CSV</button>
+          </div>
 
-        <div id="barra-selecao" class="barra-selecao so-admin" hidden>
-          <span id="sel-qtd"></span>
-          <select id="sel-responsavel"></select>
-          <button id="btn-atribuir" class="primario">Atribuir</button>
-          <button id="btn-excluir" class="perigo">Excluir</button>
-        </div>
+          <div id="barra-selecao" class="barra-selecao so-admin" hidden>
+            <strong id="sel-qtd"></strong>
+            <span class="sutil">Atribuir a</span>
+            <select id="sel-responsavel"></select>
+            <button id="btn-atribuir" class="primario compacto" type="button">Atribuir</button>
+            <span class="espaco"></span>
+            <button id="btn-excluir" class="perigo compacto" type="button"><svg class="ic"><use href="#i-lixeira"/></svg>Excluir</button>
+          </div>
 
-        <div class="tabela-rolagem">
-          <table id="tabela">
-            <thead>
-              <tr>
-                <th class="so-admin"><input type="checkbox" id="sel-todos" title="Selecionar todos"></th>
-                <th>Empresa</th>
-                <th>CNPJ</th>
-                <th class="num">Cálculo</th>
-                <th class="so-admin">Responsável</th>
-                <th class="etapa">Notificação<br>elaboração</th>
-                <th class="etapa">Entrega<br>município</th>
-                <th class="etapa">Remessa notif.<br>c/ guia</th>
-                <th class="etapa">Pagamento</th>
-                <th class="etapa">Impugnação</th>
-                <th class="etapa">Resposta<br>impugnação</th>
-                <th class="etapa">Auto de<br>infração</th>
-                <th>Situação</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-          <p id="vazio" class="sutil" hidden>Nenhuma empresa encontrada.</p>
+          <div class="tabela-rolagem">
+            <table id="tabela" class="grade">
+              <thead>
+                <tr>
+                  <th class="so-admin col-sel"><input type="checkbox" id="sel-todos" title="Selecionar todos"></th>
+                  <th><button class="ordenar" data-ordem="empresa">Empresa<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
+                  <th><button class="ordenar" data-ordem="cnpj">CNPJ<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
+                  <th class="num"><button class="ordenar" data-ordem="calculo">Cálculo<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
+                  <th class="so-admin">Responsável</th>
+                  <th class="etapa">Notificação<br>elaboração</th>
+                  <th class="etapa">Entrega<br>município</th>
+                  <th class="etapa">Remessa notif.<br>c/ guia</th>
+                  <th class="etapa">Pagamento</th>
+                  <th class="etapa">Impugnação</th>
+                  <th class="etapa">Resposta<br>impugnação</th>
+                  <th class="etapa">Auto de<br>infração</th>
+                  <th><button class="ordenar" data-ordem="situacao">Situação<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div id="vazio" class="estado-vazio" hidden>
+              <svg class="ic"><use href="#i-vazio"/></svg>
+              <strong id="vazio-titulo">Nenhuma empresa encontrada</strong>
+              <span id="vazio-texto"></span>
+            </div>
+          </div>
+          <div id="tabela-rodape" class="rodape-tabela"></div>
         </div>
       </section>
 
       <!-- Usuários (admin) -->
       <section id="aba-usuarios" hidden>
-        <p class="sutil">Os usuários são criados no painel do Supabase (Authentication → Users → Add user).
-          Aqui você acompanha o andamento de cada um.</p>
-        <div class="tabela-rolagem">
-          <table id="tabela-usuarios">
-            <thead>
-              <tr>
-                <th>Nome</th><th>E-mail</th><th>Papel</th>
-                <th class="num">Empresas</th><th class="num">Valor</th>
-                <th class="num">Em andamento</th><th class="num">Parados</th>
-                <th class="num">Pagos</th><th class="num">Autos</th><th></th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+        <div class="cabecalho-pagina">
+          <div>
+            <h1>Usuários e carteiras</h1>
+            <p>Andamento por responsável. Novos usuários são criados no painel do Supabase
+              (Authentication → Users → Add user).</p>
+          </div>
+        </div>
+        <div class="painel">
+          <div class="tabela-rolagem">
+            <table id="tabela-usuarios" class="grade">
+              <thead>
+                <tr>
+                  <th>Nome</th><th>E-mail</th><th>Papel</th>
+                  <th class="num">Empresas</th><th class="num">Valor</th>
+                  <th class="num">Em andamento</th><th class="num">Parados</th>
+                  <th class="num">Pagos</th><th class="num">Autos</th><th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
       <!-- Importar PDF (admin) -->
       <section id="aba-importar" hidden>
-        <div class="cartao">
-          <h2>Importar relatório geral (PDF)</h2>
-          <p class="sutil">Selecione o "Relatório geral — Notificações de inconsistência de IRRF".
-            Empresa, CNPJ e cálculo (coluna Diferença) são lidos automaticamente; confira antes de salvar.</p>
-          <input id="arquivo-pdf" type="file" accept="application/pdf">
+        <div class="cabecalho-pagina">
+          <div>
+            <h1>Importar relatório geral</h1>
+            <p>Relatório geral — Notificações de inconsistência de IRRF. Empresa, CNPJ e cálculo (coluna
+              Diferença) são lidos automaticamente; confira o lote antes de salvar.</p>
+          </div>
         </div>
+
+        <div class="painel">
+          <div class="painel-titulo"><span class="etapa-num">1</span>Arquivo</div>
+          <label id="dropzone" class="dropzone">
+            <input id="arquivo-pdf" type="file" accept="application/pdf">
+            <svg class="ic"><use href="#i-documento"/></svg>
+            <span id="dropzone-texto"><strong>Arraste o relatório em PDF aqui</strong> ou
+              <span class="link-falso">selecione o arquivo</span></span>
+            <small>Formato aceito: PDF gerado por sistema (texto selecionável)</small>
+          </label>
+        </div>
+
         <div id="previa" hidden>
-          <div class="cartao">
-            <div class="linha-acoes campos-lote">
-              <label>Município <input id="imp-municipio" type="text" required></label>
-              <label>UF <input id="imp-uf" type="text" maxlength="2" size="3"></label>
-              <label>Ano <input id="imp-ano" type="number" min="2000" max="2100" step="1" required></label>
+          <div class="painel">
+            <div class="painel-titulo"><span class="etapa-num">2</span>Dados do lote</div>
+            <div id="previa-cabecalho" class="ficha"></div>
+            <div class="campos-lote">
+              <label class="campo">Município <input id="imp-municipio" type="text" required></label>
+              <label class="campo">UF <input id="imp-uf" type="text" maxlength="2" size="3"></label>
+              <label class="campo">Ano <input id="imp-ano" type="number" min="2000" max="2100" step="1" required></label>
+              <label class="campo">Responsável <select id="imp-responsavel"></select></label>
             </div>
-            <div id="previa-cabecalho"></div>
             <ul id="previa-avisos" class="avisos"></ul>
-            <div class="linha-acoes">
-              <label>Responsável:
-                <select id="imp-responsavel"></select>
-              </label>
-              <button id="btn-importar" class="primario"></button>
+            <div class="linha-acoes rodape-painel">
+              <span class="sutil">Empresas já cadastradas no mesmo município e ano são ignoradas.</span>
+              <span class="espaco"></span>
+              <button id="btn-importar" class="primario" type="button"></button>
             </div>
           </div>
-          <div class="tabela-rolagem">
-            <table id="tabela-previa">
-              <thead>
-                <tr><th><input type="checkbox" id="imp-todos" checked></th><th>#</th><th>Empresa</th><th>CNPJ</th><th class="num">Cálculo</th><th></th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+
+          <div class="painel">
+            <div class="painel-titulo"><span class="etapa-num">3</span>Conferência das empresas</div>
+            <div class="tabela-rolagem">
+              <table id="tabela-previa" class="grade">
+                <thead>
+                  <tr><th class="col-sel"><input type="checkbox" id="imp-todos" checked></th><th class="num">#</th><th>Empresa</th><th>CNPJ</th><th class="num">Cálculo</th><th></th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -154,21 +256,28 @@
   <!-- Resposta da impugnação -->
   <dialog id="dlg-resposta">
     <form method="dialog" id="form-resposta">
-      <h2>Resposta da impugnação</h2>
-      <p id="resp-empresa" class="sutil"></p>
-      <label>Resultado
-        <select name="resultado" required>
-          <option value="">Selecione…</option>
-          <option value="deferida">Deferida (encerra o processo)</option>
-          <option value="parcial">Parcialmente deferida</option>
-          <option value="indeferida">Indeferida</option>
-        </select>
-      </label>
-      <label>Data da resposta <input type="date" name="data" required></label>
-      <label>Teor da resposta
-        <textarea name="teor" rows="8" required placeholder="Resumo dos fundamentos e da decisão"></textarea>
-      </label>
-      <div class="linha-acoes">
+      <div class="dlg-topo">
+        <h2>Resposta da impugnação</h2>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+      </div>
+      <div class="dlg-corpo">
+        <p id="resp-empresa" class="dlg-ref"></p>
+        <div class="campos-dupla">
+          <label class="campo">Resultado
+            <select name="resultado" required>
+              <option value="">Selecione…</option>
+              <option value="deferida">Deferida (encerra o processo)</option>
+              <option value="parcial">Parcialmente deferida</option>
+              <option value="indeferida">Indeferida</option>
+            </select>
+          </label>
+          <label class="campo">Data da resposta <input type="date" name="data" required></label>
+        </div>
+        <label class="campo">Teor da resposta
+          <textarea name="teor" rows="8" required placeholder="Resumo dos fundamentos e da decisão"></textarea>
+        </label>
+      </div>
+      <div class="dlg-rodape">
         <button type="button" id="resp-remover" class="perigo">Remover resposta</button>
         <span class="espaco"></span>
         <button type="button" id="resp-cancelar" class="secundario">Cancelar</button>
@@ -179,11 +288,16 @@
 
   <!-- Histórico (admin) -->
   <dialog id="dlg-historico">
-    <h2>Histórico</h2>
-    <p id="hist-empresa" class="sutil"></p>
-    <ul id="hist-lista" class="historico"></ul>
-    <div class="linha-acoes"><span class="espaco"></span>
-      <button type="button" class="secundario" onclick="this.closest('dialog').close()">Fechar</button></div>
+    <div class="dlg-topo">
+      <h2><svg class="ic"><use href="#i-historico"/></svg>Histórico de alterações</h2>
+      <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+    </div>
+    <div class="dlg-corpo">
+      <p id="hist-empresa" class="dlg-ref"></p>
+      <ul id="hist-lista" class="historico"></ul>
+    </div>
+    <div class="dlg-rodape"><span class="espaco"></span>
+      <button type="button" class="secundario" data-fechar>Fechar</button></div>
   </dialog>
 
   <div id="aviso" class="aviso" hidden></div>

@@ -12,6 +12,7 @@
     selecionados: new Set(),
     importacao: null,  // resultado da leitura do PDF
     respostaId: null,  // processo aberto no diálogo de resposta
+    ordem: { campo: 'calculo', dir: 'desc' },
   };
 
   // ------------------------------------------------------------------ util
@@ -42,6 +43,18 @@
   function mostrarTela(id) {
     for (const t of ['tela-config', 'tela-login', 'tela-app']) $('#' + t).hidden = t !== id;
   }
+
+  // Alternador de tema: sem escolha salva, segue o tema do sistema operacional.
+  $('#btn-tema').addEventListener('click', () => {
+    const raiz = document.documentElement;
+    const escuroAtual = raiz.dataset.theme
+      ? raiz.dataset.theme === 'escuro'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    raiz.dataset.theme = escuroAtual ? 'claro' : 'escuro';
+    try { localStorage.setItem('acompanhair-tema', raiz.dataset.theme); } catch (e) { /* ignora */ }
+  });
+
+  for (const b of $$('[data-fechar]')) b.addEventListener('click', () => b.closest('dialog').close());
 
   // ------------------------------------------------------------------ início
 
@@ -99,6 +112,11 @@
   }
 
   async function carregar() {
+    if (!estado.processos.length) {
+      $('#tabela tbody').innerHTML =
+        '<tr class="carregando"><td colspan="13"><span class="girando"></span>Carregando empresas…</td></tr>';
+      $('#vazio').hidden = true;
+    }
     const consultas = [sb.from('processos').select('*').order('calculo', { ascending: false })];
     if (ehAdmin()) consultas.push(sb.from('perfis').select('*').order('nome'));
     const [proc, perf] = await Promise.all(consultas);
@@ -168,36 +186,79 @@
 
   // ------------------------------------------------------------------ tabela
 
+  // Ordem das situações na ordenação: do início do fluxo até o encerramento.
+  const ORDEM_SITUACAO = ['Não iniciado', 'Notificação elaborada', 'Entregue ao município',
+    'Aguardando pagamento', 'Não pago', 'Impugnado — aguardando resposta', 'Resposta recebida',
+    'Auto de infração', 'Impugnação deferida — encerrado', 'Pago — encerrado'];
+
+  function ordenar(lista) {
+    const { campo, dir } = estado.ordem;
+    const agora = new Date();
+    const chave = {
+      empresa: (p) => p.empresa,
+      cnpj: (p) => p.cnpj,
+      calculo: (p) => Number(p.calculo),
+      situacao: (p) => ORDEM_SITUACAO.indexOf(Fluxo.situacao(p, agora, DIAS_PARADO).texto),
+    }[campo];
+    const fator = dir === 'asc' ? 1 : -1;
+    return [...lista].sort((a, b) => {
+      const va = chave(a);
+      const vb = chave(b);
+      const c = typeof va === 'string' ? va.localeCompare(vb, 'pt-BR') : va - vb;
+      return c * fator || Number(b.calculo) - Number(a.calculo);
+    });
+  }
+
   function renderizar() {
-    const lista = filtrados();
+    const lista = ordenar(filtrados());
     renderizarResumo(lista);
     $('#tabela tbody').innerHTML = lista.map(linhaHtml).join('');
     $('#vazio').hidden = lista.length > 0;
+    if (!lista.length) {
+      const semDados = !estado.processos.length;
+      $('#vazio-titulo').textContent = semDados ? 'Nenhuma empresa cadastrada' : 'Nenhuma empresa encontrada';
+      $('#vazio-texto').textContent = semDados
+        ? (ehAdmin() ? 'Importe um relatório geral na aba "Importar PDF" para começar.'
+          : 'Ainda não há empresas atribuídas a você. Fale com o administrador.')
+        : 'Nenhum registro corresponde aos filtros aplicados. Ajuste a busca ou os filtros.';
+    }
+    for (const b of $$('#tabela .ordenar')) {
+      const ativo = b.dataset.ordem === estado.ordem.campo;
+      b.classList.toggle('ativo', ativo);
+      b.querySelector('use').setAttribute('href',
+        ativo ? (estado.ordem.dir === 'asc' ? '#i-asc' : '#i-desc') : '#i-ordenar');
+    }
+    const total = lista.reduce((s, p) => s + Number(p.calculo), 0);
+    $('#tabela-rodape').innerHTML = estado.processos.length
+      ? `<span>Exibindo <strong>${lista.length}</strong> de <strong>${estado.processos.length}</strong> empresas</span>
+         <span>Total do cálculo exibido: <strong>${moeda(total)}</strong></span>`
+      : '';
     atualizarSelecao();
   }
 
   function renderizarResumo(lista) {
     const agora = new Date();
-    const cont = { pago: 0, valorPago: 0, impugnado: 0, auto: 0, parado: 0, andamento: 0 };
+    const cont = { pago: 0, valorPago: 0, impugnado: 0, auto: 0, valorAuto: 0, parado: 0, andamento: 0, valorAndamento: 0 };
     let total = 0;
     for (const p of lista) {
       total += Number(p.calculo);
       const s = Fluxo.situacao(p, agora, DIAS_PARADO);
       if (s.chave === 'pago') { cont.pago++; cont.valorPago += Number(p.calculo); }
       if (p.impugnacao_em) cont.impugnado++;
-      if (s.chave === 'auto') cont.auto++;
-      if (!s.encerrado) cont.andamento++;
+      if (s.chave === 'auto') { cont.auto++; cont.valorAuto += Number(p.calculo); }
+      if (!s.encerrado) { cont.andamento++; cont.valorAndamento += Number(p.calculo); }
       if (!s.encerrado && s.parado) cont.parado++;
     }
-    const card = (titulo, valor, sub = '') =>
-      `<div class="card"><span>${titulo}</span><strong>${valor}</strong>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    const pct = (n) => (lista.length ? `${Math.round((n / lista.length) * 100)}% das empresas` : '—');
+    const indicador = (titulo, valor, sub, tom = '') =>
+      `<div class="indicador ${tom}"><span>${titulo}</span><strong>${valor}</strong><small>${sub}</small></div>`;
     $('#resumo').innerHTML =
-      card('Empresas', lista.length, moeda(total)) +
-      card('Em andamento', cont.andamento) +
-      card(`Parados (${DIAS_PARADO}+ dias)`, cont.parado) +
-      card('Pagos', cont.pago, moeda(cont.valorPago)) +
-      card('Impugnados', cont.impugnado) +
-      card('Autos de infração', cont.auto);
+      indicador('Empresas notificadas', lista.length, `Cálculo total ${moeda(total)}`) +
+      indicador('Em andamento', cont.andamento, `A recuperar ${moeda(cont.valorAndamento)}`) +
+      indicador('Paradas', cont.parado, `Sem movimento há ${DIAS_PARADO}+ dias`, cont.parado ? 'atencao' : '') +
+      indicador('Pagas', cont.pago, `Recuperado ${moeda(cont.valorPago)}`, cont.pago ? 'ok' : '') +
+      indicador('Impugnadas', cont.impugnado, pct(cont.impugnado)) +
+      indicador('Autos de infração', cont.auto, `Valor ${moeda(cont.valorAuto)}`, cont.auto ? 'erro' : '');
   }
 
   function caixa(p, campo, pode) {
@@ -236,14 +297,19 @@
     }
 
     const posPagamento = p.pagamento === 'nao_pago';
-    const classeSituacao = s.encerrado ? (s.chave === 'auto' ? 'alerta' : 'ok') : (s.parado ? 'parado' : '');
+    const classeSituacao = s.encerrado ? (s.chave === 'auto' ? 'alerta' : 'ok') : (s.parado ? 'parado' : 'andamento');
+    const classeLinha = [
+      s.encerrado && s.chave !== 'auto' ? 'encerrado' : '',
+      s.chave === 'auto' ? 'linha-auto' : '',
+      !s.encerrado && s.parado ? 'linha-parado' : '',
+    ].join(' ').trim();
 
-    return `<tr class="${s.encerrado ? 'encerrado' : ''}">
+    return `<tr class="${classeLinha}">
       ${admin ? `<td><input type="checkbox" data-acao="selecionar" data-id="${p.id}" ${estado.selecionados.has(p.id) ? 'checked' : ''}></td>` : ''}
-      <td class="empresa">${admin ? `<button class="link" data-acao="historico" data-id="${p.id}">${esc(p.empresa)}</button>` : esc(p.empresa)}
+      <td class="empresa">${admin ? `<button class="link" data-acao="historico" data-id="${p.id}" title="Ver histórico">${esc(p.empresa)}</button>` : esc(p.empresa)}
         <small>${esc(lote(p))}</small></td>
-      <td class="nowrap">${cnpjFmt(p.cnpj)}</td>
-      <td class="num nowrap">${moeda(p.calculo)}</td>
+      <td class="nowrap mono">${cnpjFmt(p.cnpj)}</td>
+      <td class="num nowrap valor">${moeda(p.calculo)}</td>
       ${admin ? `<td><select data-acao="responsavel" data-id="${p.id}">
         <option value="">—</option>
         ${estado.perfis.map((u) => `<option value="${u.id}" ${u.id === p.responsavel_id ? 'selected' : ''}>${esc(u.nome || u.email)}</option>`).join('')}
@@ -255,7 +321,7 @@
       ${posPagamento ? caixa(p, 'impugnacao_em', pode.impugnacao_em) : '<td class="etapa"><span class="traco">—</span></td>'}
       <td class="etapa">${resposta}</td>
       ${posPagamento ? caixa(p, 'auto_infracao_em', pode.auto_infracao_em) : '<td class="etapa"><span class="traco">—</span></td>'}
-      <td><span class="situacao ${classeSituacao}">${esc(s.texto)}${s.parado && !s.encerrado ? ' · parado' : ''}</span></td>
+      <td><span class="situacao ${classeSituacao}">${esc(s.texto)}${s.parado && !s.encerrado ? ' · parada' : ''}</span></td>
     </tr>`;
   }
 
@@ -293,6 +359,15 @@
   $('#tabela').addEventListener('click', (e) => {
     const el = e.target.closest('button');
     if (!el) return;
+    if (el.dataset.ordem) {
+      const campo = el.dataset.ordem;
+      const textual = campo === 'empresa' || campo === 'cnpj' || campo === 'situacao';
+      estado.ordem = estado.ordem.campo === campo
+        ? { campo, dir: estado.ordem.dir === 'asc' ? 'desc' : 'asc' }
+        : { campo, dir: textual ? 'asc' : 'desc' };
+      renderizar();
+      return;
+    }
     const id = Number(el.dataset.id);
     if (el.dataset.acao === 'pagamento') {
       const valor = el.dataset.valor || null;
@@ -434,7 +509,7 @@
       }
       return `<tr>
         <td>${esc(u.nome)}</td><td>${esc(u.email)}</td>
-        <td>${u.papel === 'admin' ? 'Administrador' : 'Usuário'}</td>
+        <td><span class="etiqueta ${u.papel === 'admin' ? 'info' : ''}">${u.papel === 'admin' ? 'Administrador' : 'Usuário'}</span></td>
         <td class="num">${seus.length}</td><td class="num">${moeda(valor)}</td>
         <td class="num">${andamento}</td><td class="num">${parados}</td>
         <td class="num">${pagos}</td><td class="num">${autos}</td>
@@ -453,13 +528,33 @@
 
   // ------------------------------------------------------------------ importação do PDF (admin)
 
-  $('#arquivo-pdf').addEventListener('change', async (e) => {
-    const arquivo = e.target.files[0];
+  const dropzone = $('#dropzone');
+  const TEXTO_DROPZONE = $('#dropzone-texto').innerHTML;
+
+  $('#arquivo-pdf').addEventListener('change', (e) => processarArquivo(e.target.files[0]));
+
+  dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('arrastando'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('arrastando'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('arrastando');
+    const arquivo = e.dataTransfer.files[0];
+    if (arquivo && arquivo.type !== 'application/pdf' && !/\.pdf$/i.test(arquivo.name)) {
+      return avisar('Envie o relatório em formato PDF.');
+    }
+    processarArquivo(arquivo);
+  });
+
+  async function processarArquivo(arquivo) {
     if (!arquivo) return;
     if (!window.pdfjsLib) return avisar('Leitor de PDF não carregou. Verifique a conexão e recarregue a página.');
+    dropzone.classList.add('lendo');
+    $('#dropzone-texto').innerHTML = `<span class="girando"></span><strong>Lendo ${esc(arquivo.name)}…</strong>`;
     try {
       const r = await PdfParser.lerPdf(window.pdfjsLib, await arquivo.arrayBuffer());
       if (!r.empresas.length) throw new Error('Nenhuma empresa encontrada no PDF.');
+      r.arquivo = arquivo.name;
+      r.lidoEm = new Date();
       // Município, UF e ano vêm do PDF quando existem, mas sempre podem ser digitados.
       $('#imp-municipio').value = r.municipio || '';
       $('#imp-uf').value = r.uf || '';
@@ -473,8 +568,13 @@
       estado.importacao = null;
       $('#previa').hidden = true;
       avisar('Não foi possível ler o PDF: ' + err.message);
+    } finally {
+      dropzone.classList.remove('lendo');
+      $('#dropzone-texto').innerHTML = estado.importacao
+        ? `<strong>${esc(estado.importacao.arquivo)}</strong> carregado · <span class="link-falso">trocar arquivo</span>`
+        : TEXTO_DROPZONE;
     }
-  });
+  }
 
   function loteDigitado() {
     const ano = Number($('#imp-ano').value);
@@ -513,14 +613,20 @@
   function renderizarPrevia() {
     const r = estado.importacao;
     $('#previa').hidden = false;
-    $('#previa-cabecalho').innerHTML = `
-      <p>${r.empresas.length} empresas lidas · soma das diferenças ${moeda(r.somaDiferenca)}
-      ${r.totalDiferencaDeclarado !== null ? ` · total do relatório ${moeda(r.totalDiferencaDeclarado)}` : ''}</p>`;
+    const existentes = r.empresas.filter((e) => e.existente).length;
+    const ficha = (rotulo, valor, classe = '') =>
+      `<div><span>${rotulo}</span><strong class="${classe}" title="${esc(valor)}">${esc(valor)}</strong></div>`;
+    $('#previa-cabecalho').innerHTML =
+      ficha('Arquivo', r.arquivo || '—') +
+      ficha('Registros lidos', `${r.empresas.length} empresas${existentes ? ` (${existentes} já cadastradas)` : ''}`) +
+      ficha('Soma das diferenças', moeda(r.somaDiferenca)) +
+      ficha('Total do relatório', r.totalDiferencaDeclarado !== null ? moeda(r.totalDiferencaDeclarado) : 'não informado') +
+      ficha('Lido em', r.lidoEm ? r.lidoEm.toLocaleString('pt-BR') : '—');
     $('#previa-avisos').innerHTML = r.avisos.map((a) => `<li>${esc(a)}</li>`).join('');
     $('#tabela-previa tbody').innerHTML = r.empresas.map((emp, i) => `<tr class="${emp.existente ? 'encerrado' : ''}">
       <td><input type="checkbox" data-i="${i}" ${emp.incluir ? 'checked' : ''} ${emp.existente ? 'disabled' : ''}></td>
-      <td>${emp.numero ?? ''}</td><td>${esc(emp.empresa)}</td><td class="nowrap">${cnpjFmt(emp.cnpj)}</td>
-      <td class="num nowrap">${moeda(emp.calculo)}</td>
+      <td class="num">${emp.numero ?? ''}</td><td>${esc(emp.empresa)}</td><td class="nowrap mono">${cnpjFmt(emp.cnpj)}</td>
+      <td class="num nowrap valor">${moeda(emp.calculo)}</td>
       <td>${emp.existente ? '<span class="etiqueta">já cadastrada</span>' : ''}</td></tr>`).join('');
     atualizarBotaoImportar();
   }
@@ -564,6 +670,7 @@
     estado.importacao = null;
     $('#previa').hidden = true;
     $('#arquivo-pdf').value = '';
+    $('#dropzone-texto').innerHTML = TEXTO_DROPZONE;
     await carregar();
     trocarAba('acompanhamento');
   });
