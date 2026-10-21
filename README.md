@@ -20,8 +20,11 @@ Notificação elaboração → Entrega município → Remessa notificação c/ g
   ou indeferida), a data e o **teor**. Uma impugnação deferida encerra o processo.
 - **Auto de infração** fica disponível depois do "não pago". Se houve impugnação, só depois
   da resposta.
-- Cada etapa guarda a data em que foi marcada. Processos em andamento sem movimentação há 30 dias
-  ou mais aparecem como **parados** (o prazo é configurável em `js/config.js`).
+- Ao marcar uma etapa (ou registrar pago/não pago), o sistema pede a **data em que ela aconteceu**,
+  já preenchida com hoje. A data pode ser corrigida depois clicando nela. Não são aceitas datas
+  futuras nem fora da ordem das etapas. Desmarcar uma etapa pede confirmação.
+- Processos em andamento sem movimentação há 30 dias ou mais (pela data da última etapa)
+  aparecem como **parados** (o prazo é configurável em `js/config.js`).
 
 As regras ficam no banco (`supabase/schema.sql`), e não só na tela. Por isso não dá para
 burlá-las pelo navegador.

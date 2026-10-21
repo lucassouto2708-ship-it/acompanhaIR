@@ -275,12 +275,17 @@
       indicador('Autos de infração', cont.auto, `Valor ${moeda(cont.valorAuto)}`, cont.auto ? 'erro' : '');
   }
 
+  // Data registrada de uma etapa: clicável para corrigir.
+  const botaoData = (p, campo) =>
+    `<button type="button" class="data-etapa" data-acao="editar-data" data-campo="${campo}" data-id="${p.id}"
+      title="Corrigir a data">${data(p[campo])}</button>`;
+
   function caixa(p, campo, pode) {
     const marcado = !!p[campo];
     return `<td class="etapa"><label class="check">
       <input type="checkbox" data-acao="etapa" data-campo="${campo}" data-id="${p.id}"
         ${marcado ? 'checked' : ''} ${pode ? '' : 'disabled'}>
-      ${marcado ? `<small>${data(p[campo])}</small>` : ''}</label></td>`;
+      ${marcado ? botaoData(p, campo) : ''}</label></td>`;
   }
 
   function linhaHtml(p) {
@@ -291,7 +296,7 @@
     let pagamento;
     if (p.pagamento) {
       pagamento = `<span class="etiqueta ${p.pagamento === 'pago' ? 'ok' : 'alerta'}">
-        ${p.pagamento === 'pago' ? 'Pago' : 'Não pago'}</span><small>${data(p.pagamento_em)}</small>
+        ${p.pagamento === 'pago' ? 'Pago' : 'Não pago'}</span>${botaoData(p, 'pagamento_em')}
         ${pode.pagamento ? `<button class="link" data-acao="pagamento" data-valor="" data-id="${p.id}">desfazer</button>` : ''}`;
     } else if (pode.pagamento) {
       pagamento = `<button class="mini ok" data-acao="pagamento" data-valor="pago" data-id="${p.id}">Pago</button>
@@ -362,8 +367,13 @@
           el.checked = true;
           return;
         }
+        if (el.checked) {
+          // Marcar pede a data em que a etapa aconteceu (padrão: hoje).
+          abrirData({ id, campo: el.dataset.campo });
+          return;
+        }
         el.disabled = true;
-        atualizar(id, { [el.dataset.campo]: el.checked ? new Date().toISOString() : null });
+        atualizar(id, { [el.dataset.campo]: null });
         break;
       case 'responsavel':
         atualizar(id, { responsavel_id: el.value || null });
@@ -388,10 +398,15 @@
       return;
     }
     const id = Number(el.dataset.id);
-    if (el.dataset.acao === 'pagamento') {
+    if (el.dataset.acao === 'editar-data') {
+      e.preventDefault(); // não deixa o clique alternar a caixa da etapa
+      abrirData({ id, campo: el.dataset.campo, editar: true });
+    } else if (el.dataset.acao === 'pagamento') {
       const valor = el.dataset.valor || null;
-      if (valor === 'pago' && !confirm('Confirmar pagamento? O processo será encerrado.')) return;
-      atualizar(id, { pagamento: valor, pagamento_em: valor ? new Date().toISOString() : null });
+      if (valor) abrirData({ id, campo: 'pagamento_em', pagamento: valor });
+      else if (confirm('Desfazer o registro de pagamento? A data registrada será apagada.')) {
+        atualizar(id, { pagamento: null, pagamento_em: null });
+      }
     } else if (el.dataset.acao === 'resposta') {
       abrirResposta(id);
     } else if (el.dataset.acao === 'historico') {
@@ -434,6 +449,89 @@
     await carregar();
   });
 
+  // ------------------------------------------------------------------ data das etapas
+
+  const dlgData = $('#dlg-data');
+  const formData = $('#form-data');
+  const ROTULOS_DATA = {
+    notificacao_elaboracao_em: 'Data da elaboração da notificação',
+    entrega_municipio_em: 'Data da entrega ao município',
+    remessa_guia_em: 'Data da remessa da notificação com guia',
+    pagamento_em: 'Data do pagamento',
+    impugnacao_em: 'Data da impugnação',
+    auto_infracao_em: 'Data do auto de infração',
+  };
+  // Converte AAAA-MM-DD para data/hora gravada (meio-dia evita troca de dia pelo fuso).
+  const paraTimestamp = (dia) => new Date(dia + 'T12:00:00').toISOString();
+  const diaBr = (dia) => dia.split('-').reverse().join('/');
+
+  // pendente: { id, campo, editar?, pagamento? ('pago' | 'nao_pago') }
+  function abrirData(pendente) {
+    const p = estado.processos.find((x) => x.id === pendente.id);
+    estado.dataPendente = pendente;
+    const { min, max } = Fluxo.limitesData(p, pendente.campo);
+    const naoPago = pendente.pagamento === 'nao_pago' || (!pendente.pagamento && p.pagamento === 'nao_pago');
+
+    let titulo = ROTULOS[pendente.campo] || 'Pagamento';
+    let rotulo = ROTULOS_DATA[pendente.campo];
+    let aviso = '';
+    if (pendente.campo === 'pagamento_em') {
+      titulo = pendente.pagamento === 'pago' ? 'Registrar pagamento'
+        : pendente.pagamento === 'nao_pago' ? 'Registrar não pagamento' : 'Data do pagamento';
+      if (naoPago) rotulo = 'Data em que se constatou o não pagamento';
+      if (pendente.pagamento === 'pago') aviso = 'O pagamento encerra o processo.';
+      if (pendente.pagamento === 'nao_pago') aviso = 'O não pagamento abre a fase de impugnação e auto de infração.';
+    }
+    if (pendente.editar) titulo = `Corrigir data — ${titulo}`;
+
+    $('#data-titulo').textContent = titulo;
+    $('#data-rotulo').textContent = rotulo;
+    $('#data-empresa').textContent = `${p.empresa} — ${cnpjFmt(p.cnpj)}`;
+    $('#data-aviso').textContent = aviso;
+    $('#data-aviso').hidden = !aviso;
+    $('#data-aviso').className = `dlg-aviso ${pendente.pagamento === 'nao_pago' ? 'atencao' : ''}`;
+    const input = $('#data-valor');
+    input.min = min || '';
+    input.max = max;
+    const atual = p[pendente.campo] ? Fluxo.diaLocal(p[pendente.campo]) : null;
+    input.value = atual || max;
+    $('#data-limites').textContent = min
+      ? `Entre ${diaBr(min)} e ${diaBr(max)}, conforme as datas das demais etapas.`
+      : `Até ${diaBr(max)}.`;
+    dlgData.showModal();
+    input.focus();
+  }
+
+  formData.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pend = estado.dataPendente;
+    const input = $('#data-valor');
+    const dia = input.value;
+    if (!dia) return avisar('Informe a data.');
+    if ((input.min && dia < input.min) || dia > input.max) {
+      return avisar(input.min
+        ? `A data deve estar entre ${diaBr(input.min)} e ${diaBr(input.max)}.`
+        : `A data não pode ser posterior a ${diaBr(input.max)}.`);
+    }
+    const patch = { [pend.campo]: paraTimestamp(dia) };
+    if (pend.pagamento) patch.pagamento = pend.pagamento;
+    $('#data-confirmar').disabled = true;
+    const ok = await atualizar(pend.id, patch);
+    $('#data-confirmar').disabled = false;
+    if (ok) {
+      estado.dataPendente = null;
+      dlgData.close();
+    }
+  });
+
+  // Cancelar (botão, X ou Esc) desfaz a marcação visual da caixa.
+  dlgData.addEventListener('close', () => {
+    if (estado.dataPendente) {
+      estado.dataPendente = null;
+      renderizar();
+    }
+  });
+
   // ------------------------------------------------------------------ resposta da impugnação
 
   const dlgResposta = $('#dlg-resposta');
@@ -445,7 +543,10 @@
     estado.respostaId = id;
     $('#resp-empresa').textContent = `${p.empresa} — ${cnpjFmt(p.cnpj)}`;
     formResposta.resultado.value = p.resposta_resultado || '';
-    formResposta.data.value = (p.resposta_em ? new Date(p.resposta_em) : new Date()).toISOString().slice(0, 10);
+    const { min, max } = Fluxo.limitesData(p, 'resposta_em');
+    formResposta.data.min = min || '';
+    formResposta.data.max = max;
+    formResposta.data.value = p.resposta_em ? Fluxo.diaLocal(p.resposta_em) : max;
     formResposta.teor.value = p.resposta_teor || '';
     for (const el of [formResposta.resultado, formResposta.data, formResposta.teor]) el.disabled = !pode;
     $('#resp-salvar').hidden = !pode;
@@ -458,12 +559,19 @@
   formResposta.addEventListener('submit', async (e) => {
     e.preventDefault();
     const teor = formResposta.teor.value.trim();
+    if (!formResposta.resultado.value) return avisar('Selecione o resultado da resposta.');
+    if (!formResposta.data.value) return avisar('Informe a data da resposta.');
     if (!teor) return avisar('Informe o teor da resposta.');
+    const dia = formResposta.data.value;
+    const { min, max } = formResposta.data;
+    if ((min && dia < min) || dia > max) {
+      return avisar(min ? `A data deve estar entre ${diaBr(min)} e ${diaBr(max)}.`
+        : `A data não pode ser posterior a ${diaBr(max)}.`);
+    }
     const ok = await atualizar(estado.respostaId, {
       resposta_resultado: formResposta.resultado.value,
       resposta_teor: teor,
-      // meio-dia evita que o fuso horário mude o dia exibido
-      resposta_em: new Date(formResposta.data.value + 'T12:00:00').toISOString(),
+      resposta_em: paraTimestamp(dia),
     });
     if (ok) dlgResposta.close();
   });

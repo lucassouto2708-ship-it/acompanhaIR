@@ -91,7 +91,7 @@
           <div><strong>AcompanhaIR</strong><small>Acompanhamento de notificações de IRRF</small></div>
         </div>
         <div class="topo-direita">
-          <span class="versao">v1.4</span>
+          <span class="versao">v1.5</span>
           <button id="btn-tema" class="icone" type="button" title="Alternar tema claro/escuro">
             <svg class="ic tema-claro"><use href="#i-lua"/></svg>
             <svg class="ic tema-escuro"><use href="#i-sol"/></svg>
@@ -157,7 +157,7 @@
               <thead>
                 <tr>
                   <th class="so-admin col-sel"><input type="checkbox" id="sel-todos" title="Selecionar todos"></th>
-                  <th><button class="ordenar" data-ordem="empresa">Empresa<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
+                  <th class="col-empresa"><button class="ordenar" data-ordem="empresa">Empresa<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
                   <th><button class="ordenar" data-ordem="cnpj">CNPJ<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
                   <th class="num"><button class="ordenar" data-ordem="calculo">Cálculo<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
                   <th class="so-admin">Responsável</th>
@@ -266,7 +266,7 @@
 
   <!-- Resposta da impugnação -->
   <dialog id="dlg-resposta">
-    <form method="dialog" id="form-resposta">
+    <form method="dialog" id="form-resposta" novalidate>
       <div class="dlg-topo">
         <h2>Resposta da impugnação</h2>
         <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
@@ -293,6 +293,29 @@
         <span class="espaco"></span>
         <button type="button" id="resp-cancelar" class="secundario">Cancelar</button>
         <button type="submit" id="resp-salvar" class="primario">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Data de uma etapa / do pagamento -->
+  <dialog id="dlg-data">
+    <form method="dialog" id="form-data" novalidate>
+      <div class="dlg-topo">
+        <h2 id="data-titulo"></h2>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+      </div>
+      <div class="dlg-corpo">
+        <p id="data-empresa" class="dlg-ref"></p>
+        <p id="data-aviso" class="dlg-aviso" hidden></p>
+        <label class="campo"><span id="data-rotulo"></span>
+          <input type="date" name="data" id="data-valor" required>
+        </label>
+        <small id="data-limites"></small>
+      </div>
+      <div class="dlg-rodape">
+        <span class="espaco"></span>
+        <button type="button" class="secundario" data-fechar>Cancelar</button>
+        <button type="submit" id="data-confirmar" class="primario">Confirmar</button>
       </div>
     </form>
   </dialog>

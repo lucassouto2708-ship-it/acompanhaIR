@@ -503,3 +503,39 @@ dialog::backdrop { background: rgba(17, 24, 39, .45); }
   .campos-lote, .campos-dupla { grid-template-columns: 1fr 1fr; }
   .tabela-rolagem { max-height: none; }
 }
+
+/* ---------------------------------------------------------------- datas das etapas */
+.data-etapa {
+  height: auto; padding: 1px 4px; border: 0; border-radius: 3px; background: none;
+  font-family: var(--mono); font-size: 10.5px; font-weight: 400; color: var(--sutil);
+  text-decoration: underline dotted; text-underline-offset: 2px;
+}
+.data-etapa:hover { color: var(--primaria); background: var(--azul-claro); }
+.grade td.etapa .data-etapa { display: block; margin: 0 auto; }
+.dlg-aviso {
+  padding: 8px 12px; border-radius: var(--raio); border-left: 3px solid var(--primaria);
+  background: var(--azul-claro); color: var(--texto); font-weight: 500;
+}
+.dlg-aviso.atencao { border-left-color: var(--atencao); background: var(--atencao-fundo); }
+#dlg-data { width: min(440px, calc(100vw - 32px)); }
+
+/* ---------------------------------------------------------------- coluna Empresa fixa ao rolar para o lado */
+.grade td.empresa, #tabela th.col-empresa {
+  position: sticky; left: 0; z-index: 1;
+  background: var(--superficie); border-right: 1px solid var(--borda);
+}
+#tabela th.col-empresa { z-index: 3; background: var(--superficie-2); }
+body.admin #tabela td.empresa, body.admin #tabela th.col-empresa { left: 38px; }
+body.admin #tabela th.col-sel, body.admin #tabela tbody td:first-child {
+  position: sticky; left: 0; z-index: 1; width: 38px; min-width: 38px; max-width: 38px; padding: 0 10px;
+}
+body.admin #tabela th.col-sel { z-index: 3; }
+body.admin #tabela tbody td:first-child { background: var(--superficie); }
+.grade tbody tr:nth-child(even) td.empresa,
+body.admin #tabela tbody tr:nth-child(even) td:first-child { background: var(--superficie-2); }
+.grade tbody tr:hover td.empresa,
+body.admin #tabela tbody tr:hover td:first-child { background: var(--azul-claro); }
+@media (max-width: 760px) {
+  .grade td.empresa, #tabela th.col-empresa,
+  body.admin #tabela th.col-sel, body.admin #tabela tbody td:first-child { position: static; }
+}

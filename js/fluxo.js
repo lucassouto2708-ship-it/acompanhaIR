@@ -76,7 +76,29 @@
     }
   }
 
-  const api = { permissoes, situacao, correspondeFiltro, RESULTADOS, ETAPAS_LINEARES };
+  // Datas do processo na ordem do fluxo: cada uma não pode ser anterior às de antes
+  // nem posterior às de depois (nem ao dia de hoje).
+  const ORDEM_DATAS = [...ETAPAS_LINEARES, 'pagamento_em', 'impugnacao_em', 'resposta_em', 'auto_infracao_em'];
+
+  /** Data local no formato AAAA-MM-DD (o que o <input type="date"> usa). */
+  function diaLocal(d) {
+    const x = new Date(d);
+    const z = (n) => String(n).padStart(2, '0');
+    return `${x.getFullYear()}-${z(x.getMonth() + 1)}-${z(x.getDate())}`;
+  }
+
+  /** Intervalo permitido para a data de um campo: { min, max } em AAAA-MM-DD. */
+  function limitesData(p, campo, hoje = new Date()) {
+    const i = ORDEM_DATAS.indexOf(campo);
+    const antes = ORDEM_DATAS.slice(0, i).map((c) => p[c]).filter(Boolean).map(diaLocal);
+    const depois = ORDEM_DATAS.slice(i + 1).map((c) => p[c]).filter(Boolean).map(diaLocal);
+    return {
+      min: antes.length ? antes.sort().at(-1) : null,
+      max: [diaLocal(hoje), ...depois].sort()[0],
+    };
+  }
+
+  const api = { permissoes, situacao, correspondeFiltro, limitesData, diaLocal, RESULTADOS, ETAPAS_LINEARES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Fluxo = api;
 })(typeof window !== 'undefined' ? window : globalThis);
