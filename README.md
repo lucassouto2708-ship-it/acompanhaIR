@@ -83,9 +83,10 @@ dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb
 
 ## Uso no dia a dia
 
-1. **Importar PDF** (admin): selecione o relatório geral. O sistema lê município, ano, empresas,
+1. **Importar PDF** (admin): selecione o relatório geral. O sistema lê município, UF, ano, empresas,
    CNPJ e a coluna **Diferença** (cálculo), e confere a quantidade e a soma com o total do
-   relatório. Escolha o responsável e clique em **Importar**. Empresas que já existem no mesmo
+   relatório. Município, UF e ano ficam em campos editáveis: se o PDF não trouxer o ano (ou
+   qualquer um deles), digite. Escolha o responsável e clique em **Importar**. Empresas que já existem no mesmo
    município e ano são ignoradas, então reimportar o mesmo PDF não duplica nada.
 2. **Distribuir** (admin): na aba Acompanhamento, selecione empresas e use **Atribuir**, ou troque
    o responsável linha a linha.

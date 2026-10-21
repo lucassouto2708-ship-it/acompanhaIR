@@ -9,7 +9,10 @@
 (function (root) {
   const RE_CNPJ = /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/;
   const RE_MOEDA = /^R\$\s*-?[\d.]+,\d{2}$/;
-  const RE_MUNICIPIO = /Munic[ií]pio:\s*(.+?)\s+(\d{4})\s*\/\s*([A-Z]{2})\b/i;
+  // "Município: NOME 2024/MG", "Município: NOME/MG" ou só "Município: NOME".
+  const RE_MUNICIPIO = /Munic[ií]pio:\s*(.+?)(?:\s+(\d{4}))?\s*\/\s*([A-Z]{2})\b/i;
+  const RE_MUNICIPIO_SIMPLES = /Munic[ií]pio:\s*(.+?)(?:\s+(\d{4}))?\s*(?:[—–-]\s*([A-Z]{2})\b|[—–-]\s|$)/i;
+  const RE_ANO = /\b(?:exerc[ií]cio|ano|compet[eê]ncia)\s*:?\s*(\d{4})\b/i;
   const RE_TOTAL_EMPRESAS = /(\d+)\s+empresas?/i;
   // Distância vertical máxima (pt) entre um pedaço do nome e a linha do CNPJ.
   const TOLERANCIA_Y = 12;
@@ -44,12 +47,14 @@
         .filter((i) => i.str);
 
       for (const it of itens) {
-        const m = it.str.match(RE_MUNICIPIO);
+        const m = it.str.match(RE_MUNICIPIO) || it.str.match(RE_MUNICIPIO_SIMPLES);
         if (m && !resultado.municipio) {
           resultado.municipio = m[1].trim();
-          resultado.ano = parseInt(m[2], 10);
-          resultado.uf = m[3].toUpperCase();
+          if (m[2]) resultado.ano = parseInt(m[2], 10);
+          if (m[3]) resultado.uf = m[3].toUpperCase();
         }
+        const a = it.str.match(RE_ANO);
+        if (a && resultado.ano === null) resultado.ano = parseInt(a[1], 10);
         const t = it.str.match(RE_TOTAL_EMPRESAS);
         if (t && resultado.totalEmpresasDeclarado === null && /diverg/i.test(it.str)) {
           resultado.totalEmpresasDeclarado = parseInt(t[1], 10);
@@ -86,7 +91,7 @@
       const xNumeroMax = Math.max(0, ...linhas.filter((l) => l.numero).map((l) => l.numero.x));
       for (const it of itens) {
         if (it.x >= xCnpj - 2 || it.x <= xNumeroMax + 5) continue;
-        if (RE_MUNICIPIO.test(it.str)) continue;
+        if (/Munic[ií]pio:/i.test(it.str)) continue;
         let melhor = null;
         for (const l of linhas) {
           const d = Math.abs(l.cnpj.y - it.y);
@@ -116,7 +121,8 @@
     const soma = resultado.empresas.reduce((s, e) => s + (e.calculo || 0), 0);
     resultado.somaDiferenca = Math.round(soma * 100) / 100;
 
-    if (!resultado.municipio) resultado.avisos.push('Município/ano não encontrados no cabeçalho.');
+    if (!resultado.municipio) resultado.avisos.push('Município não encontrado no PDF: preencha o campo Município.');
+    if (resultado.ano === null) resultado.avisos.push('Ano não encontrado no PDF: preencha o campo Ano.');
     if (resultado.totalEmpresasDeclarado !== null &&
         resultado.totalEmpresasDeclarado !== resultado.empresas.length) {
       resultado.avisos.push(

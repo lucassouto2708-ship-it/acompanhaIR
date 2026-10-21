@@ -460,14 +460,15 @@
     try {
       const r = await PdfParser.lerPdf(window.pdfjsLib, await arquivo.arrayBuffer());
       if (!r.empresas.length) throw new Error('Nenhuma empresa encontrada no PDF.');
-      if (!r.municipio) throw new Error('Município/ano não encontrados no cabeçalho do PDF.');
-      const { data: existentes, error } = await sb.from('processos').select('cnpj')
-        .eq('municipio', r.municipio).eq('ano', r.ano);
-      if (error) throw error;
-      const jaTem = new Set(existentes.map((x) => x.cnpj));
-      r.empresas.forEach((emp) => { emp.existente = jaTem.has(emp.cnpj); emp.incluir = !emp.existente; });
+      // Município, UF e ano vêm do PDF quando existem, mas sempre podem ser digitados.
+      $('#imp-municipio').value = r.municipio || '';
+      $('#imp-uf').value = r.uf || '';
+      $('#imp-ano').value = r.ano || '';
       estado.importacao = r;
+      await marcarExistentes();
       renderizarPrevia();
+      if (!r.municipio) $('#imp-municipio').focus();
+      else if (!r.ano) $('#imp-ano').focus();
     } catch (err) {
       estado.importacao = null;
       $('#previa').hidden = true;
@@ -475,10 +476,44 @@
     }
   });
 
+  function loteDigitado() {
+    const ano = Number($('#imp-ano').value);
+    return {
+      municipio: $('#imp-municipio').value.trim().replace(/\s+/g, ' ').toUpperCase(),
+      uf: $('#imp-uf').value.trim().toUpperCase() || null,
+      ano: Number.isInteger(ano) && ano >= 2000 && ano <= 2100 ? ano : null,
+    };
+  }
+
+  // Marca as empresas que já existem no município/ano informados.
+  async function marcarExistentes() {
+    const { municipio, ano } = loteDigitado();
+    let jaTem = new Set();
+    if (municipio && ano) {
+      const { data: existentes, error } = await sb.from('processos').select('cnpj')
+        .eq('municipio', municipio).eq('ano', ano);
+      if (error) return avisar(error.message);
+      jaTem = new Set(existentes.map((x) => x.cnpj));
+    }
+    estado.importacao.empresas.forEach((emp) => {
+      const antes = emp.existente;
+      emp.existente = jaTem.has(emp.cnpj);
+      if (emp.incluir === undefined || antes !== emp.existente) emp.incluir = !emp.existente;
+    });
+  }
+
+  for (const id of ['#imp-municipio', '#imp-uf', '#imp-ano']) {
+    $(id).addEventListener('change', async () => {
+      if (!estado.importacao) return;
+      await marcarExistentes();
+      renderizarPrevia();
+    });
+  }
+
   function renderizarPrevia() {
     const r = estado.importacao;
     $('#previa').hidden = false;
-    $('#previa-cabecalho').innerHTML = `<h3>${esc(r.municipio)}/${esc(r.uf || '')} — ${r.ano}</h3>
+    $('#previa-cabecalho').innerHTML = `
       <p>${r.empresas.length} empresas lidas · soma das diferenças ${moeda(r.somaDiferenca)}
       ${r.totalDiferencaDeclarado !== null ? ` · total do relatório ${moeda(r.totalDiferencaDeclarado)}` : ''}</p>`;
     $('#previa-avisos').innerHTML = r.avisos.map((a) => `<li>${esc(a)}</li>`).join('');
@@ -510,9 +545,12 @@
 
   $('#btn-importar').addEventListener('click', async () => {
     const r = estado.importacao;
+    const { municipio, uf, ano } = loteDigitado();
+    if (!municipio) { $('#imp-municipio').focus(); return avisar('Informe o município.'); }
+    if (!ano) { $('#imp-ano').focus(); return avisar('Informe o ano (4 dígitos).'); }
     const responsavel = $('#imp-responsavel').value || null;
     const linhas = r.empresas.filter((e) => e.incluir).map((e) => ({
-      municipio: r.municipio, uf: r.uf, ano: r.ano,
+      municipio, uf, ano,
       empresa: e.empresa, cnpj: e.cnpj, calculo: e.calculo, responsavel_id: responsavel,
     }));
     $('#btn-importar').disabled = true;
