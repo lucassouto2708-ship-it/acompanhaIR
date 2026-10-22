@@ -30,6 +30,30 @@
   };
   const lote = (p) => `${p.municipio}${p.uf ? '/' + p.uf : ''} ${p.ano}`;
 
+  // O Supabase devolve no máximo 1.000 linhas por consulta: busca página por página até acabar.
+  const TAMANHO_PAGINA = 1000;
+  async function buscarTodos(montarConsulta) {
+    const linhas = [];
+    for (let de = 0; ; de += TAMANHO_PAGINA) {
+      const { data, error } = await montarConsulta().range(de, de + TAMANHO_PAGINA - 1);
+      if (error) return { data: null, error };
+      linhas.push(...data);
+      if (data.length < TAMANHO_PAGINA) return { data: linhas, error: null };
+    }
+  }
+
+  // Atualiza muitas linhas em lotes (a lista de ids vai no endereço da requisição, que tem limite de tamanho).
+  async function atualizarEmLotes(ids, patch) {
+    for (let i = 0; i < ids.length; i += 200) {
+      const { error } = await sb.from('processos').update(patch).in('id', ids.slice(i, i + 200));
+      if (error) return { error, feitos: i };
+    }
+    return { error: null, feitos: ids.length };
+  }
+
+  // Processos ativos (não arquivados). Só o admin recebe os arquivados do banco.
+  const ativos = () => estado.processos.filter((p) => !p.arquivado_em);
+
   let avisoTimer;
   function avisar(msg, tipo = 'erro') {
     const el = $('#aviso');
@@ -115,6 +139,9 @@
     estado.perfil = perfil;
     estado.perfis = [perfil];
     document.body.classList.toggle('admin', ehAdmin());
+    const optArq = $('#f-status option[value="arquivadas"]');
+    if (ehAdmin() && !optArq) $('#f-status').insertAdjacentHTML('beforeend', '<option value="arquivadas">Arquivadas</option>');
+    if (!ehAdmin() && optArq) optArq.remove();
     $('#usuario-nome').textContent = perfil.nome || perfil.email;
     $('#usuario-papel').textContent = ehAdmin() ? 'Administrador' : 'Usuário';
     mostrarTela('tela-app');
@@ -128,8 +155,9 @@
         '<tr class="carregando"><td colspan="12"><span class="girando"></span>Carregando empresas…</td></tr>';
       $('#vazio').hidden = true;
     }
-    const consultas = [sb.from('processos').select('*').order('calculo', { ascending: false })];
-    if (ehAdmin()) consultas.push(sb.from('perfis').select('*').order('nome'));
+    const consultas = [buscarTodos(() => sb.from('processos').select('*')
+      .order('calculo', { ascending: false }).order('id'))];
+    if (ehAdmin()) consultas.push(buscarTodos(() => sb.from('perfis').select('*').order('nome').order('id')));
     const [proc, perf] = await Promise.all(consultas);
     if (proc.error) return avisar('Erro ao carregar: ' + proc.error.message);
     estado.processos = proc.data;
@@ -149,7 +177,7 @@
   function trocarAba(aba) {
     for (const b of $$('#abas button')) b.classList.toggle('ativa', b.dataset.aba === aba);
     for (const s of ['acompanhamento', 'usuarios', 'importar']) $('#aba-' + s).hidden = s !== aba;
-    if (aba === 'usuarios') renderizarUsuarios();
+    if (aba === 'usuarios') { renderizarUsuarios(); mostrarInfoBackup(); }
     if (aba === 'importar') preencherSelectResponsavel($('#imp-responsavel'), true);
   }
 
@@ -188,11 +216,13 @@
     const fStatus = $('#f-status').value;
     const fResp = ehAdmin() ? $('#f-responsavel').value : '';
     const agora = new Date();
+    const verArquivadas = fStatus === 'arquivadas';
     return estado.processos.filter((p) =>
+      (verArquivadas ? !!p.arquivado_em : !p.arquivado_em) &&
       (!busca || p.empresa.toLowerCase().includes(busca) || (buscaDig && p.cnpj.includes(buscaDig))) &&
       (!fLote || lote(p) === fLote) &&
       (!fResp || (fResp === '-' ? !p.responsavel_id : p.responsavel_id === fResp)) &&
-      Fluxo.correspondeFiltro(p, fStatus, agora, DIAS_PARADO));
+      (verArquivadas || Fluxo.correspondeFiltro(p, fStatus, agora, DIAS_PARADO)));
   }
 
   // ------------------------------------------------------------------ tabela
@@ -322,8 +352,8 @@
     const ids = filtrados().filter((p) => lote(p) === chave).map((p) => p.id);
     const nome = responsavel ? nomePerfil(responsavel) : 'ninguém (sem responsável)';
     if (!confirm(`Atribuir ${ids.length} empresa(s) de ${chave} a ${nome}?`)) return renderizar();
-    const { error } = await sb.from('processos').update({ responsavel_id: responsavel }).in('id', ids);
-    if (error) { avisar(error.message); return renderizar(); }
+    const { error } = await atualizarEmLotes(ids, { responsavel_id: responsavel });
+    if (error) { avisar(error.message); return carregar(); }
     avisar(`${ids.length} empresa(s) de ${chave} atribuída(s) a ${nome}.`, 'ok');
     await carregar();
   }
@@ -364,7 +394,7 @@
     $('#tabela tbody').innerHTML = ehAdmin() ? corpoAgrupado(lista) : lista.map(linhaHtml).join('');
     $('#vazio').hidden = lista.length > 0;
     if (!lista.length) {
-      const semDados = !estado.processos.length;
+      const semDados = !ativos().length && $('#f-status').value !== 'arquivadas';
       $('#vazio-titulo').textContent = semDados ? 'Nenhuma empresa cadastrada' : 'Nenhuma empresa encontrada';
       $('#vazio-texto').textContent = semDados
         ? (ehAdmin() ? 'Importe um relatório geral na aba "Importar PDF" para começar.'
@@ -379,8 +409,9 @@
     }
     const total = lista.reduce((s, p) => s + Number(p.calculo), 0);
     const municipios = new Set(lista.map(lote)).size;
+    const totalAtivos = ativos().length;
     $('#tabela-rodape').innerHTML = estado.processos.length
-      ? `<span>Exibindo <strong>${lista.length}</strong> de <strong>${estado.processos.length}</strong> empresas${ehAdmin()
+      ? `<span>Exibindo <strong>${lista.length}</strong> de <strong>${totalAtivos}</strong> empresas${ehAdmin()
         ? ` em <strong>${municipios}</strong> ${municipios === 1 ? 'município' : 'municípios'}` : ''}</span>
          ${ehAdmin() ? `<span>Total do cálculo exibido: <strong>${moeda(total)}</strong></span>` : ''}`
       : '';
@@ -580,6 +611,7 @@
 
   function atualizarSelecao() {
     const n = estado.selecionados.size;
+    $('#btn-arquivar-texto').textContent = $('#f-status').value === 'arquivadas' ? 'Restaurar' : 'Arquivar';
     $('#barra-selecao').hidden = !ehAdmin() || n === 0;
     $('#sel-qtd').textContent = `${n} selecionada${n === 1 ? '' : 's'}`;
     const visiveis = filtrados();
@@ -596,18 +628,37 @@
   $('#btn-atribuir').addEventListener('click', async () => {
     const ids = [...estado.selecionados];
     const resp = $('#sel-responsavel').value || null;
-    const { error } = await sb.from('processos').update({ responsavel_id: resp }).in('id', ids);
-    if (error) return avisar(error.message);
+    if (ids.length > LIMITE_SEM_DIGITAR && !confirmarDigitando(
+      `Atribuir ${ids.length} empresas a ${resp ? nomePerfil(resp) : 'ninguém'}?`, 'ATRIBUIR')) return;
+    const { error } = await atualizarEmLotes(ids, { responsavel_id: resp });
+    if (error) { avisar(error.message); return carregar(); }
     avisar(`${ids.length} empresa(s) atribuída(s).`, 'ok');
     await carregar();
   });
 
-  $('#btn-excluir').addEventListener('click', async () => {
+  // Ações em massa acima deste número exigem digitar a palavra de confirmação.
+  const LIMITE_SEM_DIGITAR = 20;
+  function confirmarDigitando(mensagem, palavra) {
+    const r = prompt(`${mensagem}\n\nPara confirmar, digite ${palavra}:`);
+    if (r === null) return false;
+    if (r.trim().toUpperCase() !== palavra) { avisar(`Cancelado: era preciso digitar ${palavra}.`); return false; }
+    return true;
+  }
+
+  // Arquivar no lugar de excluir: some da lista, mantém andamento e histórico, pode ser restaurado.
+  $('#btn-arquivar').addEventListener('click', async () => {
     const ids = [...estado.selecionados];
-    if (!confirm(`Excluir ${ids.length} empresa(s)? Isso apaga também o andamento e o histórico.`)) return;
-    const { error } = await sb.from('processos').delete().in('id', ids);
-    if (error) return avisar(error.message);
-    avisar(`${ids.length} empresa(s) excluída(s).`, 'ok');
+    const restaurar = $('#f-status').value === 'arquivadas';
+    const verbo = restaurar ? 'Restaurar' : 'Arquivar';
+    const msg = restaurar
+      ? `Restaurar ${ids.length} empresa(s)? Elas voltam para a lista com o andamento que tinham.`
+      : `Arquivar ${ids.length} empresa(s)? Elas saem da lista (e da visão dos usuários), mas o andamento e o ` +
+        'histórico são mantidos e podem ser restaurados pelo filtro Situação → Arquivadas.';
+    const ok = ids.length > LIMITE_SEM_DIGITAR ? confirmarDigitando(msg, verbo.toUpperCase()) : confirm(msg);
+    if (!ok) return;
+    const { error } = await atualizarEmLotes(ids, { arquivado_em: restaurar ? null : new Date().toISOString() });
+    if (error) { avisar(error.message); return carregar(); }
+    avisar(`${ids.length} empresa(s) ${restaurar ? 'restaurada(s)' : 'arquivada(s)'}.`, 'ok');
     await carregar();
   });
 
@@ -786,7 +837,7 @@
   function renderizarUsuarios() {
     const agora = new Date();
     $('#tabela-usuarios tbody').innerHTML = estado.perfis.map((u) => {
-      const seus = estado.processos.filter((p) => p.responsavel_id === u.id);
+      const seus = ativos().filter((p) => p.responsavel_id === u.id);
       let andamento = 0; let parados = 0; let pagos = 0; let autos = 0; let valor = 0;
       for (const p of seus) {
         const s = Fluxo.situacao(p, agora, DIAS_PARADO);
@@ -813,6 +864,44 @@
     $('#f-responsavel').value = id;
     trocarAba('acompanhamento');
     renderizar();
+  });
+
+  // ------------------------------------------------------------------ backup completo (admin)
+
+  // O plano gratuito do Supabase não tem backup restaurável: este arquivo é a cópia de segurança.
+  const CHAVE_BACKUP = 'acompanhair-ultimo-backup';
+  function mostrarInfoBackup() {
+    let ultimo = null;
+    try { ultimo = localStorage.getItem(CHAVE_BACKUP); } catch (e) { /* ignora */ }
+    $('#backup-info').textContent = ultimo
+      ? `Último backup neste computador: ${new Date(ultimo).toLocaleString('pt-BR')}`
+      : 'Nenhum backup feito neste computador.';
+  }
+
+  $('#btn-backup').addEventListener('click', async () => {
+    const btn = $('#btn-backup');
+    btn.disabled = true;
+    const [proc, hist, perf] = await Promise.all([
+      buscarTodos(() => sb.from('processos').select('*').order('id')),
+      buscarTodos(() => sb.from('historico').select('*').order('id')),
+      buscarTodos(() => sb.from('perfis').select('*').order('id')),
+    ]);
+    btn.disabled = false;
+    const erro = proc.error || hist.error || perf.error;
+    if (erro) return avisar('Erro ao gerar o backup: ' + erro.message);
+    const agora = new Date();
+    const conteudo = JSON.stringify({
+      sistema: 'AcompanhaIR', gerado_em: agora.toISOString(),
+      processos: proc.data, historico: hist.data, perfis: perf.data,
+    }, null, 1);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([conteudo], { type: 'application/json' }));
+    a.download = `acompanhair_backup_${agora.toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    try { localStorage.setItem(CHAVE_BACKUP, agora.toISOString()); } catch (e) { /* ignora */ }
+    mostrarInfoBackup();
+    avisar(`Backup gerado: ${proc.data.length} empresas, ${hist.data.length} registros de histórico.`, 'ok');
   });
 
   // ------------------------------------------------------------------ importação do PDF (admin)
@@ -883,8 +972,8 @@
     const { municipio, ano } = loteDigitado();
     let jaTem = new Set();
     if (municipio && ano) {
-      const { data: existentes, error } = await sb.from('processos').select('cnpj')
-        .eq('municipio', municipio).eq('ano', ano);
+      const { data: existentes, error } = await buscarTodos(() => sb.from('processos').select('cnpj, id')
+        .eq('municipio', municipio).eq('ano', ano).order('id'));
       if (error) return avisar(error.message);
       jaTem = new Set(existentes.map((x) => x.cnpj));
     }
@@ -1131,8 +1220,15 @@
       data(p.resposta_em), p.resposta_teor, data(p.auto_infracao_em),
       Fluxo.situacao(p, agora, DIAS_PARADO).texto,
     ]);
+    // Células que começam com = + - @ (ou tab/CR) seriam executadas como fórmula pelo Excel:
+    // o apóstrofo na frente faz o Excel tratá-las como texto.
+    const celula = (v) => {
+      let t = String(v ?? '');
+      if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`;
+      return `"${t.replace(/"/g, '""')}"`;
+    };
     const csv = [cab, ...linhas]
-      .map((l) => l.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
+      .map((l) => l.map(celula).join(';'))
       .join('\r\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');

@@ -87,6 +87,10 @@ create table if not exists public.processos (
   unique (cnpj, municipio, ano)
 );
 
+-- Arquivamento (substitui a exclusão no site: some da lista, mas pode ser restaurado
+-- e mantém o histórico). Adicionado em versão posterior; seguro rodar de novo.
+alter table public.processos add column if not exists arquivado_em timestamptz;
+
 create index if not exists processos_responsavel_idx on public.processos (responsavel_id);
 create index if not exists processos_municipio_ano_idx on public.processos (municipio, ano);
 
@@ -107,6 +111,7 @@ begin
     or new.cnpj           is distinct from old.cnpj
     or new.calculo        is distinct from old.calculo
     or new.responsavel_id is distinct from old.responsavel_id
+    or new.arquivado_em   is distinct from old.arquivado_em
     or new.criado_em      is distinct from old.criado_em then
       raise exception 'Somente o administrador pode alterar os dados da empresa.';
     end if;
@@ -189,7 +194,8 @@ declare
 begin
   foreach campo in array array[
     'responsavel_id', 'notificacao_elaboracao_em', 'entrega_municipio_em', 'remessa_guia_em',
-    'pagamento', 'impugnacao_em', 'resposta_resultado', 'resposta_teor', 'auto_infracao_em'
+    'pagamento', 'impugnacao_em', 'resposta_resultado', 'resposta_teor', 'auto_infracao_em',
+    'arquivado_em'
   ] loop
     if antes -> campo is distinct from depois -> campo then
       insert into public.historico (processo_id, usuario_id, campo, de, para)
@@ -227,7 +233,7 @@ create policy perfis_update_admin on public.perfis
 drop policy if exists processos_select on public.processos;
 create policy processos_select on public.processos
   for select to authenticated
-  using (public.is_admin() or responsavel_id = auth.uid());
+  using (public.is_admin() or (responsavel_id = auth.uid() and arquivado_em is null));
 
 drop policy if exists processos_insert_admin on public.processos;
 create policy processos_insert_admin on public.processos
@@ -237,7 +243,7 @@ create policy processos_insert_admin on public.processos
 drop policy if exists processos_update on public.processos;
 create policy processos_update on public.processos
   for update to authenticated
-  using (public.is_admin() or responsavel_id = auth.uid())
+  using (public.is_admin() or (responsavel_id = auth.uid() and arquivado_em is null))
   with check (public.is_admin() or responsavel_id = auth.uid());
 
 drop policy if exists processos_delete_admin on public.processos;

@@ -586,3 +586,7 @@ input[type="checkbox"]:indeterminate {
 #tabela-previa small.ok { color: var(--ok); }
 #tabela-previa small .link { font-size: 11px; margin-left: 4px; }
 .grade tbody tr.linha-pendente td:first-child { box-shadow: inset 3px 0 0 var(--atencao); }
+
+/* ---------------------------------------------------------------- backup (aba Usuários) */
+.cabecalho-pagina .backup { margin-left: auto; display: grid; justify-items: end; gap: 4px; }
+.cabecalho-pagina .backup small { text-align: right; }

@@ -105,7 +105,18 @@ dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb
    Busca por texto ou filtro de município abrem os grupos automaticamente. O admin filtra por usuário,
    município ou situação, vê o resumo na aba **Usuários** e clica no nome da empresa para ver o
    histórico de quem marcou o quê e quando.
-4. **Exportar CSV**: baixa a visão filtrada para abrir no Excel.
+4. **Exportar CSV**: baixa a visão filtrada para abrir no Excel (células que começariam com `=`, `+`,
+   `-` ou `@` recebem um apóstrofo na frente, para o Excel não executá-las como fórmula).
+5. **Arquivar** (admin): no lugar de excluir, selecione as empresas e use **Arquivar**. Elas saem da
+   lista e da visão dos usuários, mas o andamento e o histórico ficam guardados; para ver ou restaurar,
+   use o filtro **Situação → Arquivadas**. Ações com mais de 20 empresas pedem que você digite a
+   palavra de confirmação.
+6. **Backup completo** (admin, aba Usuários): baixa um arquivo `.json` com todas as empresas
+   (inclusive arquivadas), o histórico e os usuários. O plano gratuito do Supabase não tem backup
+   restaurável: faça esse backup com regularidade (por exemplo, toda semana) e guarde o arquivo.
+
+> **Plano gratuito do Supabase:** o projeto é pausado após 7 dias sem uso, e o site para até alguém
+> reativá-lo no painel do Supabase (Project → Restore). Com uso semanal isso não acontece.
 
 ## Estrutura
 
@@ -127,3 +138,8 @@ carregadas de CDN com versão fixa.
 O GitHub Pages guarda os arquivos em cache por até 10 minutos. Ao alterar o site, atualize o número
 da versão no `index.html` (o selo `vX.Y` e o `?v=X.Y` nos links de CSS/JS): assim o navegador busca os
 arquivos novos juntos, sem misturar HTML novo com JavaScript antigo.
+
+## Atualizando o banco
+
+Quando uma versão mudar o `supabase/schema.sql`, rode o arquivo inteiro de novo no SQL Editor do
+Supabase. Ele foi escrito para ser executado sobre um banco existente sem perder dados.
