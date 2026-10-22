@@ -1,7 +1,7 @@
 /* AcompanhaIR — interface (HTML + JS puro, sem build). */
 (function () {
   const cfg = window.ACOMPANHAIR_CONFIG || {};
-  const DIAS_PARADO = cfg.diasParado || 30;
+  const DIAS_PARADO = cfg.diasParado || 15;
   const $ = (sel, el = document) => el.querySelector(sel);
   const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 

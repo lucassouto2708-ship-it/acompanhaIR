@@ -6,5 +6,5 @@ window.ACOMPANHAIR_CONFIG = {
   supabaseUrl: 'https://onbidvcfhrdjsybuqsuy.supabase.co',
   supabaseAnonKey: 'sb_publishable_Kac3upgjBc8YfszZokPm9A_VPhamoea',
   // Dias sem movimentação para um processo em andamento ser considerado "parado".
-  diasParado: 30,
+  diasParado: 15,
 };

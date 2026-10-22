@@ -34,7 +34,7 @@
   }
 
   /** Situação do processo: { chave, texto, encerrado }. */
-  function situacao(p, agora = new Date(), diasParado = 30) {
+  function situacao(p, agora = new Date(), diasParado = 15) {
     if (p.pagamento === 'pago') return { chave: 'pago', texto: 'Pago — encerrado', encerrado: true };
     if (p.resposta_resultado === 'deferida') {
       return { chave: 'deferida', texto: 'Impugnação deferida — encerrado', encerrado: true };

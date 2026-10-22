@@ -23,7 +23,7 @@ Notificação elaboração → Entrega município → Remessa notificação c/ g
 - Ao marcar uma etapa (ou registrar pago/não pago), o sistema pede a **data em que ela aconteceu**,
   já preenchida com hoje. A data pode ser corrigida depois clicando nela. Não são aceitas datas
   futuras nem fora da ordem das etapas. Desmarcar uma etapa pede confirmação.
-- Processos em andamento sem movimentação há 30 dias ou mais (pela data da última etapa)
+- Processos em andamento sem movimentação há 15 dias ou mais (pela data da última etapa)
   aparecem como **parados** (o prazo é configurável em `js/config.js`).
 
 As regras ficam no banco (`supabase/schema.sql`), e não só na tela. Por isso não dá para
