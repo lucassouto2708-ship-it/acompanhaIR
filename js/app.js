@@ -434,10 +434,14 @@
     const pct = (n) => (lista.length ? `${Math.round((n / lista.length) * 100)}% das empresas` : '—');
     const indicador = (titulo, valor, sub, tom = '') =>
       `<div class="indicador ${tom}"><span>${titulo}</span><strong>${valor}</strong><small>${sub}</small></div>`;
+    // A mesma empresa pode ter notificações em vários municípios/anos: conta os CNPJs distintos.
+    const cnpjs = new Set(lista.map((p) => p.cnpj)).size;
+    const distintos = `${cnpjs} ${cnpjs === 1 ? 'CNPJ diferente' : 'CNPJs diferentes'}`;
     // Valores totais (R$) só para o administrador; o usuário comum vê apenas quantidades.
     const admin = ehAdmin();
     $('#resumo').innerHTML =
-      indicador('Empresas notificadas', lista.length, admin ? `Cálculo total ${moeda(total)}` : 'Atribuídas a você') +
+      indicador('Empresas notificadas', lista.length,
+        admin ? `de ${distintos}</small><small>Cálculo total ${moeda(total)}` : `de ${distintos} · atribuídas a você`) +
       indicador('Em andamento', cont.andamento, admin ? `A recuperar ${moeda(cont.valorAndamento)}` : pct(cont.andamento)) +
       indicador('Paradas', cont.parado, `Sem movimento há ${DIAS_PARADO}+ dias`, cont.parado ? 'atencao' : '') +
       indicador('Pagas', cont.pago, admin ? `Recuperado ${moeda(cont.valorPago)}` : pct(cont.pago), cont.pago ? 'ok' : '') +
