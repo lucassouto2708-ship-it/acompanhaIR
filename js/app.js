@@ -382,7 +382,7 @@
     $('#tabela-rodape').innerHTML = estado.processos.length
       ? `<span>Exibindo <strong>${lista.length}</strong> de <strong>${estado.processos.length}</strong> empresas${ehAdmin()
         ? ` em <strong>${municipios}</strong> ${municipios === 1 ? 'município' : 'municípios'}` : ''}</span>
-         <span>Total do cálculo exibido: <strong>${moeda(total)}</strong></span>`
+         ${ehAdmin() ? `<span>Total do cálculo exibido: <strong>${moeda(total)}</strong></span>` : ''}`
       : '';
     atualizarSelecao();
   }
@@ -403,13 +403,15 @@
     const pct = (n) => (lista.length ? `${Math.round((n / lista.length) * 100)}% das empresas` : '—');
     const indicador = (titulo, valor, sub, tom = '') =>
       `<div class="indicador ${tom}"><span>${titulo}</span><strong>${valor}</strong><small>${sub}</small></div>`;
+    // Valores totais (R$) só para o administrador; o usuário comum vê apenas quantidades.
+    const admin = ehAdmin();
     $('#resumo').innerHTML =
-      indicador('Empresas notificadas', lista.length, `Cálculo total ${moeda(total)}`) +
-      indicador('Em andamento', cont.andamento, `A recuperar ${moeda(cont.valorAndamento)}`) +
+      indicador('Empresas notificadas', lista.length, admin ? `Cálculo total ${moeda(total)}` : 'Atribuídas a você') +
+      indicador('Em andamento', cont.andamento, admin ? `A recuperar ${moeda(cont.valorAndamento)}` : pct(cont.andamento)) +
       indicador('Paradas', cont.parado, `Sem movimento há ${DIAS_PARADO}+ dias`, cont.parado ? 'atencao' : '') +
-      indicador('Pagas', cont.pago, `Recuperado ${moeda(cont.valorPago)}`, cont.pago ? 'ok' : '') +
+      indicador('Pagas', cont.pago, admin ? `Recuperado ${moeda(cont.valorPago)}` : pct(cont.pago), cont.pago ? 'ok' : '') +
       indicador('Impugnadas', cont.impugnado, pct(cont.impugnado)) +
-      indicador('Autos de infração', cont.auto, `Valor ${moeda(cont.valorAuto)}`, cont.auto ? 'erro' : '');
+      indicador('Autos de infração', cont.auto, admin ? `Valor ${moeda(cont.valorAuto)}` : pct(cont.auto), cont.auto ? 'erro' : '');
   }
 
   // Data registrada de uma etapa: clicável para corrigir.
