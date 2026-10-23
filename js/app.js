@@ -493,11 +493,12 @@
 
     return `<tr class="grupo ${aberto ? 'aberto' : ''} ${mesmoMunicipioAnterior ? 'mesmo-municipio' : ''}" data-lote="${esc(chave)}">
       <td><input type="checkbox" data-acao="selecionar-grupo" data-lote="${esc(chave)}" title="Selecionar todas as empresas deste município/ano"></td>
-      <td class="empresa"><div class="grupo-nome">
+      <td class="empresa"><button type="button" class="grupo-nome" aria-expanded="${aberto}"
+          title="${aberto ? 'Fechar' : 'Abrir'} ${nome} ${p0.ano}">
         <svg class="ic seta"><use href="#i-seta"/></svg>
-        <strong title="${nome}">${nome}</strong>
+        <strong>${nome}</strong>
         <span class="grupo-ano">${p0.ano}</span>
-      </div><small class="grupo-qtd">${n} ${n === 1 ? 'empresa' : 'empresas'}</small></td>
+      </button><small class="grupo-qtd">${n} ${n === 1 ? 'empresa' : 'empresas'}</small></td>
       <td class="num nowrap valor">${moeda(total)}</td>
       <td>${seletorResponsavelGrupo(chave, itens)}</td>
       ${fracao('notificacao_elaboracao_em')}
@@ -552,10 +553,13 @@
   }
 
   function alternarGrupo(chave) {
-    if (gruposForcados()) return; // com busca/filtro de município ativo, tudo fica aberto
+    if (gruposForcados()) return; // com busca/filtro ativo, tudo fica aberto
     if (estado.abertos.has(chave)) estado.abertos.delete(chave); else estado.abertos.add(chave);
     salvarAbertos();
+    const comTeclado = document.activeElement?.classList.contains('grupo-nome');
     renderizar();
+    // A tabela é redesenhada: devolve o foco ao mesmo município para quem navega pelo teclado.
+    if (comTeclado) $(`#tabela tr.grupo[data-lote="${CSS.escape(chave)}"] .grupo-nome`)?.focus();
   }
 
   $('#btn-expandir').addEventListener('click', () => {
@@ -1029,6 +1033,7 @@
     formResposta.data.max = max;
     formResposta.data.value = p.resposta_em ? Fluxo.diaLocal(p.resposta_em) : max;
     formResposta.teor.value = p.resposta_teor || '';
+    contarTeor();
     for (const el of [formResposta.resultado, formResposta.data, formResposta.teor]) el.disabled = !pode;
     $('#resp-salvar').hidden = !pode;
     $('#resp-remover').hidden = !pode || !p.resposta_em;
@@ -1036,6 +1041,9 @@
   }
 
   $('#resp-cancelar').addEventListener('click', () => dlgResposta.close());
+  // Contador do teor (o banco recusa acima de 10.000 caracteres).
+  const contarTeor = () => { $('#resp-contador').textContent = `${formResposta.teor.value.length.toLocaleString('pt-BR')} / 10.000 caracteres`; };
+  formResposta.teor.addEventListener('input', contarTeor);
 
   formResposta.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1076,14 +1084,19 @@
     resposta_resultado: 'Resultado da resposta',
     resposta_teor: 'Teor da resposta',
     auto_infracao_em: 'Auto de infração',
+    pagamento_em: 'Data do pagamento',
+    resposta_em: 'Data da resposta',
+    arquivado_em: 'Arquivamento',
   };
 
   function descreverValor(campo, v) {
-    if (v === null || v === undefined) return 'desmarcado';
+    if (campo === 'arquivado_em') return v ? 'arquivada' : 'restaurada';
+    if (v === null || v === undefined) return campo === 'responsavel_id' ? 'sem responsável' : 'desmarcado';
     if (campo === 'responsavel_id') return nomePerfil(v) || 'outro usuário';
     if (campo === 'pagamento') return v === 'pago' ? 'Pago' : 'Não pago';
     if (campo === 'resposta_resultado') return Fluxo.RESULTADOS[v] || v;
-    if (campo.endsWith('_em')) return 'marcado';
+    if (campo.endsWith('_em')) return data(v); // mostra a data registrada (inclui correções)
+    if (campo === 'resposta_teor') return v.length > 140 ? v.slice(0, 140) + '…' : v;
     return v;
   }
 

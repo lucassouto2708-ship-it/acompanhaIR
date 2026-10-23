@@ -18,7 +18,7 @@
   <script>
     // VERSÃO DO SITE: altere só aqui a cada publicação. O número vai no endereço do CSS/JS
     // e obriga o navegador a buscar os arquivos novos juntos (o GitHub Pages guarda cache por ~10 min).
-    window.ACOMPANHAIR_VERSAO = '1.17';
+    window.ACOMPANHAIR_VERSAO = '1.18';
     document.write('<link rel="stylesheet" href="css/style.css?v=' + window.ACOMPANHAIR_VERSAO + '">');
   </script>
 </head>
@@ -308,7 +308,8 @@
           <label class="campo">Data da resposta <input type="date" name="data" required></label>
         </div>
         <label class="campo">Teor da resposta
-          <textarea name="teor" rows="8" required placeholder="Resumo dos fundamentos e da decisão"></textarea>
+          <textarea name="teor" rows="8" required maxlength="10000" placeholder="Resumo dos fundamentos e da decisão"></textarea>
+          <small id="resp-contador" class="contador"></small>
         </label>
       </div>
       <div class="dlg-rodape">

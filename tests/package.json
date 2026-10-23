@@ -1,0 +1,14 @@
+{
+  "name": "acompanhair-testes",
+  "private": true,
+  "description": "Testes automáticos do AcompanhaIR (não fazem parte do site publicado).",
+  "scripts": {
+    "test": "playwright test",
+    "test:db": "bash db/rodar.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "jspdf": "2.5.1",
+    "pdfjs-dist": "3.11.174"
+  }
+}

@@ -102,6 +102,17 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  -- Datas do processo na ordem do fluxo e seus nomes nas mensagens.
+  campos  text[] := array['notificacao_elaboracao_em', 'entrega_municipio_em', 'remessa_guia_em',
+                          'pagamento_em', 'impugnacao_em', 'resposta_em', 'auto_infracao_em'];
+  rotulos text[] := array['Notificação elaboração', 'Entrega município', 'Remessa notificação c/ guia',
+                          'Pagamento', 'Impugnação', 'Resposta da impugnação', 'Auto de infração'];
+  novo    jsonb := to_jsonb(new);
+  velho   jsonb := case when tg_op = 'UPDATE' then to_jsonb(old) else '{}'::jsonb end;
+  hoje    date  := (now() at time zone 'America/Sao_Paulo')::date;
+  di      date;
+  dj      date;
 begin
   if tg_op = 'UPDATE' and auth.uid() is not null and not public.is_admin() then
     if new.municipio      is distinct from old.municipio
@@ -155,6 +166,28 @@ begin
     end if;
   end if;
 
+  -- Datas: nenhuma no futuro e todas na ordem do fluxo. Só confere as datas que mudaram nesta
+  -- gravação, para não travar registros antigos.
+  for i in 1 .. array_length(campos, 1) loop
+    continue when novo ->> campos[i] is null or (novo -> campos[i]) is not distinct from (velho -> campos[i]);
+    di := ((novo ->> campos[i])::timestamptz at time zone 'America/Sao_Paulo')::date;
+    if di > hoje then
+      raise exception 'A data de "%" (%) não pode ser futura.', rotulos[i], to_char(di, 'DD/MM/YYYY');
+    end if;
+    for j in 1 .. array_length(campos, 1) loop
+      continue when j = i or novo ->> campos[j] is null;
+      dj := ((novo ->> campos[j])::timestamptz at time zone 'America/Sao_Paulo')::date;
+      if (j < i and dj > di) or (j > i and dj < di) then
+        raise exception 'A data de "%" (%) está fora da ordem: "%" é de %.',
+          rotulos[i], to_char(di, 'DD/MM/YYYY'), rotulos[j], to_char(dj, 'DD/MM/YYYY');
+      end if;
+    end loop;
+  end loop;
+
+  if char_length(new.resposta_teor) > 10000 then
+    raise exception 'O teor da resposta passa do limite de 10.000 caracteres.';
+  end if;
+
   new.atualizado_em := now();
   new.atualizado_por := coalesce(auth.uid(), new.atualizado_por);
   return new;
@@ -181,6 +214,13 @@ create table if not exists public.historico (
 
 create index if not exists historico_processo_idx on public.historico (processo_id, em desc);
 
+-- O histórico não é apagado junto com o processo: na exclusão fica o registro "excluido" com a
+-- identificação da empresa, e o vínculo passa a nulo. (Migração para bancos já criados.)
+alter table public.historico alter column processo_id drop not null;
+alter table public.historico drop constraint if exists historico_processo_id_fkey;
+alter table public.historico add constraint historico_processo_id_fkey
+  foreign key (processo_id) references public.processos (id) on delete set null;
+
 create or replace function public.registrar_historico()
 returns trigger
 language plpgsql
@@ -194,8 +234,8 @@ declare
 begin
   foreach campo in array array[
     'responsavel_id', 'notificacao_elaboracao_em', 'entrega_municipio_em', 'remessa_guia_em',
-    'pagamento', 'impugnacao_em', 'resposta_resultado', 'resposta_teor', 'auto_infracao_em',
-    'arquivado_em'
+    'pagamento', 'pagamento_em', 'impugnacao_em', 'resposta_em', 'resposta_resultado', 'resposta_teor',
+    'auto_infracao_em', 'arquivado_em'
   ] loop
     if antes -> campo is distinct from depois -> campo then
       insert into public.historico (processo_id, usuario_id, campo, de, para)
@@ -210,6 +250,26 @@ drop trigger if exists registrar_historico on public.processos;
 create trigger registrar_historico
   after update on public.processos
   for each row execute function public.registrar_historico();
+
+-- Exclusão definitiva (só pelo painel/SQL; o site arquiva): registra quem, quando e qual empresa.
+create or replace function public.registrar_exclusao()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.historico (processo_id, usuario_id, campo, de, para)
+  values (old.id, auth.uid(), 'excluido',
+          format('%s (CNPJ %s) — %s/%s %s', old.empresa, old.cnpj, old.municipio, coalesce(old.uf, ''), old.ano), null);
+  return old;
+end;
+$$;
+
+drop trigger if exists registrar_exclusao on public.processos;
+create trigger registrar_exclusao
+  before delete on public.processos
+  for each row execute function public.registrar_exclusao();
 
 -- ---------------------------------------------------------------------
 -- Regras de acesso (Row Level Security)

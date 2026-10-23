@@ -7,6 +7,15 @@ Versões marcadas com **Banco** exigiram rodar o `supabase/schema.sql` no Supaba
 Para marcar uma versão no GitHub (opcional, não altera o site): **Releases → Draft a new release →
 Choose a tag** (ex.: `v1.17`) → em **Target**, escolher o commit da versão → **Publish release**.
 
+## v1.18 — 23/10/2026
+
+- Banco recusa datas futuras e fora da ordem das etapas (antes só o site conferia); registros antigos continuam editáveis
+- Histórico registra correções da data do pagamento e da resposta, arquivamentos e exclusões definitivas (que não apagam mais o histórico) e mostra as datas
+- Teor da resposta limitado a 10.000 caracteres (banco e campo, com contador)
+- Linha do município abre/fecha pelo teclado (Enter/Espaço), mantendo o foco
+- Início da suíte de testes automáticos em `tests/`
+- **Banco:** rodar o `supabase/schema.sql` de novo
+
 ## v1.17 — 23/10/2026
 Commit: `0e60f83`
 

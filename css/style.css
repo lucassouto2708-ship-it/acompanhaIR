@@ -529,7 +529,11 @@ body.admin #tabela tbody tr.grupo.aberto td { background: var(--azul-claro); bor
 body.admin #tabela tbody tr.grupo:not(.mesmo-municipio) td { border-top: 1px solid var(--borda-forte); }
 body.admin #tabela tbody tr.grupo.mesmo-municipio .grupo-nome strong { color: var(--sutil); font-weight: 500; }
 
-.grupo-nome { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.grupo-nome {
+  display: flex; align-items: center; justify-content: flex-start; gap: 6px; min-width: 0; width: 100%;
+  height: auto; padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left;
+}
+.grupo-nome:focus-visible { outline: 2px solid var(--primaria); outline-offset: 2px; box-shadow: none; }
 .grupo-nome .seta { width: 15px; height: 15px; color: var(--sutil); transition: transform .15s; flex: none; }
 tr.grupo.aberto .grupo-nome .seta { transform: rotate(90deg); color: var(--primaria); }
 .grupo-nome strong {
@@ -605,3 +609,4 @@ input[type="checkbox"]:indeterminate {
 .faixa-aviso-item span { flex: 1; min-width: 240px; }
 .nota-grafia { margin: 0 16px 12px; padding: 8px 12px; border-left: 3px solid var(--primaria); background: var(--azul-claro); border-radius: var(--raio); }
 .faixa-aviso-item em { font-style: normal; color: var(--sutil); }
+.contador { text-align: right; }
