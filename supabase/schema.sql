@@ -256,5 +256,18 @@ create policy historico_select_admin on public.historico
   for select to authenticated
   using (public.is_admin());
 
+-- ---------------------------------------------------------------------
+-- Tempo real: o site recebe as mudanças em processos feitas por outras pessoas.
+-- (O Supabase Realtime respeita as regras de acesso acima.) Seguro rodar de novo.
+-- ---------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables
+                     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'processos') then
+    alter publication supabase_realtime add table public.processos;
+  end if;
+end $$;
+
 -- Visitantes não logados não têm acesso a nada.
 revoke all on public.perfis, public.processos, public.historico from anon;

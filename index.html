@@ -15,7 +15,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="css/style.css?v=1.15">
+  <script>
+    // VERSÃO DO SITE: altere só aqui a cada publicação. O número vai no endereço do CSS/JS
+    // e obriga o navegador a buscar os arquivos novos juntos (o GitHub Pages guarda cache por ~10 min).
+    window.ACOMPANHAIR_VERSAO = '1.16';
+    document.write('<link rel="stylesheet" href="css/style.css?v=' + window.ACOMPANHAIR_VERSAO + '">');
+  </script>
 </head>
 <body>
   <!-- Ícones (Lucide, MIT) -->
@@ -94,7 +99,7 @@
           <div><strong>AcompanhaIR</strong><small>Acompanhamento de notificações de IRRF</small></div>
         </div>
         <div class="topo-direita">
-          <span class="versao">v1.15</span>
+          <span class="versao" id="versao"></span>
           <button id="btn-tema" class="icone" type="button" title="Alternar tema claro/escuro">
             <svg class="ic tema-claro"><use href="#i-lua"/></svg>
             <svg class="ic tema-escuro"><use href="#i-sol"/></svg>
@@ -134,7 +139,8 @@
             <select id="f-status">
               <option value="">Todas as situações</option>
               <option value="andamento">Em andamento</option>
-              <option value="parado">Parados</option>
+              <option value="parado">Paradas (iniciadas)</option>
+              <option value="nao_iniciada">Não iniciadas (atrasadas)</option>
               <option value="aguardando_pagamento">Aguardando pagamento</option>
               <option value="pago">Pagos (encerrados)</option>
               <option value="impugnado">Impugnados</option>
@@ -151,20 +157,22 @@
             </span>
           </div>
 
-          <div id="barra-selecao" class="barra-selecao so-admin" hidden>
+          <div id="barra-selecao" class="barra-selecao" hidden>
             <strong id="sel-qtd"></strong>
-            <span class="sutil">Atribuir a</span>
-            <select id="sel-responsavel"></select>
-            <button id="btn-atribuir" class="primario compacto" type="button">Atribuir</button>
+            <button id="btn-marcar-lote" class="primario compacto" type="button" title="Marcar a mesma etapa, com a mesma data, em todas as selecionadas">Marcar etapa…</button>
+            <span class="so-admin divisor-barra"></span>
+            <span class="sutil so-admin">Atribuir a</span>
+            <select id="sel-responsavel" class="so-admin"></select>
+            <button id="btn-atribuir" class="secundario compacto so-admin" type="button">Atribuir</button>
             <span class="espaco"></span>
-            <button id="btn-arquivar" class="secundario compacto" type="button" title="Tira da lista sem apagar; pode ser restaurado"><svg class="ic"><use href="#i-arquivo"/></svg><span id="btn-arquivar-texto">Arquivar</span></button>
+            <button id="btn-arquivar" class="secundario compacto so-admin" type="button" title="Tira da lista sem apagar; pode ser restaurado"><svg class="ic"><use href="#i-arquivo"/></svg><span id="btn-arquivar-texto">Arquivar</span></button>
           </div>
 
           <div class="tabela-rolagem">
             <table id="tabela" class="grade">
               <thead>
                 <tr>
-                  <th class="so-admin col-sel"><input type="checkbox" id="sel-todos" title="Selecionar todos"></th>
+                  <th class="col-sel"><input type="checkbox" id="sel-todos" title="Selecionar todos"></th>
                   <th class="col-empresa"><button class="ordenar" data-ordem="empresa">Empresa<svg class="ic"><use href="#i-ordenar"/></svg></button>
                     <span class="sep-ordem">/</span><button class="ordenar" data-ordem="cnpj">CNPJ<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
                   <th class="num"><button class="ordenar" data-ordem="calculo">Cálculo<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
@@ -212,7 +220,7 @@
                 <tr>
                   <th>Nome</th><th>E-mail</th><th>Papel</th>
                   <th class="num">Empresas</th><th class="num">Valor</th>
-                  <th class="num">Em andamento</th><th class="num">Parados</th>
+                  <th class="num">Em andamento</th><th class="num">Paradas</th><th class="num">Não iniciadas atrasadas</th>
                   <th class="num">Pagos</th><th class="num">Autos</th><th></th>
                 </tr>
               </thead>
@@ -333,6 +341,61 @@
     </form>
   </dialog>
 
+  <!-- Confirmação (substitui confirm/prompt do navegador) -->
+  <dialog id="dlg-confirmar">
+    <form method="dialog" id="form-confirmar" novalidate>
+      <div class="dlg-topo">
+        <h2 id="conf-titulo"></h2>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+      </div>
+      <div class="dlg-corpo">
+        <p id="conf-mensagem" class="conf-mensagem"></p>
+        <label id="conf-digitar" class="campo" hidden>
+          <span>Para confirmar, digite <strong id="conf-palavra"></strong></span>
+          <input type="text" id="conf-input" autocomplete="off">
+        </label>
+      </div>
+      <div class="dlg-rodape">
+        <span class="espaco"></span>
+        <button type="button" class="secundario" data-fechar>Cancelar</button>
+        <button type="submit" id="conf-ok" class="primario">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Marcar etapa em várias empresas -->
+  <dialog id="dlg-lote">
+    <form method="dialog" id="form-lote" novalidate>
+      <div class="dlg-topo">
+        <h2>Marcar etapa em lote</h2>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+      </div>
+      <div class="dlg-corpo">
+        <p id="lote-ref" class="dlg-ref"></p>
+        <div class="campos-dupla">
+          <label class="campo">Etapa
+            <select id="lote-etapa">
+              <option value="notificacao_elaboracao_em">Notificação elaboração</option>
+              <option value="entrega_municipio_em">Entrega município</option>
+              <option value="remessa_guia_em">Remessa notificação c/ guia</option>
+              <option value="pago">Pagamento: Pago</option>
+              <option value="nao_pago">Pagamento: Não pago</option>
+              <option value="impugnacao_em">Impugnação</option>
+              <option value="auto_infracao_em">Auto de infração</option>
+            </select>
+          </label>
+          <label class="campo">Data <input type="date" id="lote-data"></label>
+        </div>
+        <ul id="lote-resumo" class="lote-resumo"></ul>
+      </div>
+      <div class="dlg-rodape">
+        <span class="espaco"></span>
+        <button type="button" class="secundario" data-fechar>Cancelar</button>
+        <button type="submit" id="lote-ok" class="primario">Marcar</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Histórico (admin) -->
   <dialog id="dlg-historico">
     <div class="dlg-topo">
@@ -351,9 +414,10 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="js/config.js?v=1.15"></script>
-  <script src="js/pdf-parser.js?v=1.15"></script>
-  <script src="js/fluxo.js?v=1.15"></script>
-  <script src="js/app.js?v=1.15"></script>
+  <script>
+    ['js/config.js', 'js/pdf-parser.js', 'js/fluxo.js', 'js/app.js'].forEach(function (arq) {
+      document.write('<script src="' + arq + '?v=' + window.ACOMPANHAIR_VERSAO + '"><\/script>');
+    });
+  </script>
 </body>
 </html>

@@ -256,12 +256,11 @@ main > section { display: grid; gap: 16px; }
 
 /* ---------------------------------------------------------------- resumo */
 .resumo {
-  display: grid; grid-template-columns: repeat(6, 1fr);
-  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio);
-  box-shadow: var(--sombra);
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px;
+  background: var(--borda); border: 1px solid var(--borda); border-radius: var(--raio);
+  box-shadow: var(--sombra); overflow: hidden;
 }
-.indicador { padding: 12px 16px; border-left: 1px solid var(--borda); min-width: 0; }
-.indicador:first-child { border-left: 0; }
+.indicador { padding: 12px 16px; min-width: 0; background: var(--superficie); }
 .indicador span { display: block; font-size: 11.5px; font-weight: 500; color: var(--sutil); }
 .indicador strong { display: block; font-size: 18px; font-weight: 600; line-height: 1.4; }
 .indicador small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -456,9 +455,7 @@ dialog::backdrop { background: rgba(17, 24, 39, .45); }
 
 /* ---------------------------------------------------------------- responsivo */
 @media (max-width: 1100px) {
-  .resumo { grid-template-columns: repeat(3, 1fr); }
-  .indicador:nth-child(4) { border-left: 0; }
-  .indicador:nth-child(n+4) { border-top: 1px solid var(--borda); }
+  .resumo { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   .topo-interno, main { padding-left: 16px; padding-right: 16px; }
@@ -467,10 +464,7 @@ dialog::backdrop { background: rgba(17, 24, 39, .45); }
   .abas .topo-interno { overflow-x: auto; scrollbar-width: none; }
   .abas button { padding: 0 10px; flex: none; }
   .barra-ferramentas select { flex: 1 1 100%; }
-  .resumo { grid-template-columns: repeat(2, 1fr); }
-  .indicador:nth-child(odd) { border-left: 0; }
-  .indicador:nth-child(4) { border-left: 1px solid var(--borda); }
-  .indicador:nth-child(n+3) { border-top: 1px solid var(--borda); }
+  .resumo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .busca { flex: 1 1 100%; }
   .campos-lote, .campos-dupla { grid-template-columns: 1fr 1fr; }
   .tabela-rolagem { max-height: none; }
@@ -497,19 +491,19 @@ dialog::backdrop { background: rgba(17, 24, 39, .45); }
   background: var(--superficie); border-right: 1px solid var(--borda);
 }
 #tabela th.col-empresa { z-index: 3; background: var(--superficie-2); }
-body.admin #tabela td.empresa, body.admin #tabela th.col-empresa { left: 38px; }
-body.admin #tabela th.col-sel, body.admin #tabela tbody td:first-child {
+#tabela td.empresa, #tabela th.col-empresa { left: 38px; }
+#tabela th.col-sel, #tabela tbody td:first-child {
   position: sticky; left: 0; z-index: 1; width: 38px; min-width: 38px; max-width: 38px; padding: 0 10px;
 }
-body.admin #tabela th.col-sel { z-index: 3; }
-body.admin #tabela tbody td:first-child { background: var(--superficie); }
+#tabela th.col-sel { z-index: 3; }
+#tabela tbody td:first-child { background: var(--superficie); }
 .grade tbody tr:nth-child(even) td.empresa,
-body.admin #tabela tbody tr:nth-child(even) td:first-child { background: var(--superficie-2); }
+#tabela tbody tr:nth-child(even) td:first-child { background: var(--superficie-2); }
 .grade tbody tr:hover td.empresa,
-body.admin #tabela tbody tr:hover td:first-child { background: var(--azul-claro); }
+#tabela tbody tr:hover td:first-child { background: var(--azul-claro); }
 @media (max-width: 760px) {
   .grade td.empresa, #tabela th.col-empresa,
-  body.admin #tabela th.col-sel, body.admin #tabela tbody td:first-child { position: static; }
+  #tabela th.col-sel, #tabela tbody td:first-child { position: static; }
 }
 
 /* ---------------------------------------------------------------- agrupamento por município (admin) */
@@ -590,3 +584,16 @@ input[type="checkbox"]:indeterminate {
 /* ---------------------------------------------------------------- backup (aba Usuários) */
 .cabecalho-pagina .backup { margin-left: auto; display: grid; justify-items: end; gap: 4px; }
 .cabecalho-pagina .backup small { text-align: right; }
+
+/* ---------------------------------------------------------------- confirmações e marcação em lote */
+.perigo-cheio { background: var(--erro); color: #fff; }
+.perigo-cheio:hover:not(:disabled) { filter: brightness(.92); }
+.conf-mensagem { white-space: pre-line; line-height: 1.55; }
+#dlg-confirmar { width: min(480px, calc(100vw - 32px)); }
+#conf-digitar span { color: var(--texto); font-weight: 400; }
+#conf-digitar strong { font-family: var(--mono); }
+.lote-resumo { list-style: none; margin: 0; padding: 10px 12px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie-2); }
+.lote-resumo li { padding: 2px 0; font-size: 13px; }
+.lote-resumo li.apta strong { color: var(--primaria); font-size: 15px; }
+.lote-resumo li.pulada { color: var(--atencao); }
+.divisor-barra { width: 1px; height: 20px; background: var(--borda-forte); margin: 0 4px; }

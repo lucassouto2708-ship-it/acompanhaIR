@@ -51,9 +51,13 @@
     else if (p.notificacao_elaboracao_em) texto = 'Notificação elaborada';
     else texto = 'Não iniciado';
 
+    // Dois alertas diferentes:
+    //  - parado: já começou e está sem movimentação há N+ dias (conta da última etapa);
+    //  - atrasada: nunca começou e já faz N+ dias da importação.
     const ultima = ultimaMovimentacao(p);
-    const parado = ultima && (agora - ultima) / 86400000 >= diasParado;
-    return { chave, texto, encerrado: false, parado };
+    const dias = ultima ? (agora - ultima) / 86400000 : 0;
+    const iniciado = texto !== 'Não iniciado';
+    return { chave, texto, encerrado: false, parado: iniciado && dias >= diasParado, atrasada: !iniciado && dias >= diasParado };
   }
 
   function ultimaMovimentacao(p) {
@@ -71,6 +75,7 @@
       case '': return true;
       case 'andamento': return !s.encerrado;
       case 'parado': return !s.encerrado && s.parado;
+      case 'nao_iniciada': return !s.encerrado && s.atrasada;
       case 'impugnado': return !!p.impugnacao_em;
       default: return s.chave === filtro;
     }

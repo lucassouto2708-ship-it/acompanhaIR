@@ -23,8 +23,14 @@ Notificação elaboração → Entrega município → Remessa notificação c/ g
 - Ao marcar uma etapa (ou registrar pago/não pago), o sistema pede a **data em que ela aconteceu**,
   já preenchida com hoje. A data pode ser corrigida depois clicando nela. Não são aceitas datas
   futuras nem fora da ordem das etapas. Desmarcar uma etapa pede confirmação.
-- Processos em andamento sem movimentação há 15 dias ou mais (pela data da última etapa)
-  aparecem como **parados** (o prazo é configurável em `js/config.js`).
+- Dois alertas de atraso (prazo configurável em `diasParado`, `js/config.js`; padrão 15 dias):
+  **paradas** são empresas já iniciadas e sem movimentação há 15+ dias (contando da última etapa);
+  **não iniciadas atrasadas** são empresas importadas há 15+ dias sem nenhuma etapa marcada.
+- **Marcar etapa em lote:** selecione empresas (caixas à esquerda, disponível para todos os perfis)
+  e use **Marcar etapa…**: escolha a etapa e a data; o sistema mostra quantas serão marcadas e
+  quantas serão puladas (já marcadas, falta a etapa anterior, data fora de ordem).
+- A tela se atualiza sozinha quando outra pessoa altera uma empresa (tempo real), e recarrega ao
+  voltar para a aba depois de 1 minuto fora.
 
 As regras ficam no banco (`supabase/schema.sql`), e não só na tela. Por isso não dá para
 burlá-las pelo navegador.
@@ -135,9 +141,9 @@ carregadas de CDN com versão fixa.
 
 ## Publicando uma nova versão
 
-O GitHub Pages guarda os arquivos em cache por até 10 minutos. Ao alterar o site, atualize o número
-da versão no `index.html` (o selo `vX.Y` e o `?v=X.Y` nos links de CSS/JS): assim o navegador busca os
-arquivos novos juntos, sem misturar HTML novo com JavaScript antigo.
+O GitHub Pages guarda os arquivos em cache por até 10 minutos. A cada publicação, altere **só** a
+linha `window.ACOMPANHAIR_VERSAO = '…'` no topo do `index.html`: o número vai no endereço do CSS e
+dos scripts (o navegador busca todos os arquivos novos juntos) e aparece no selo do cabeçalho.
 
 ## Atualizando o banco
 

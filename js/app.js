@@ -68,6 +68,8 @@
     for (const t of ['tela-config', 'tela-login', 'tela-app']) $('#' + t).hidden = t !== id;
   }
 
+  $('#versao').textContent = 'v' + (window.ACOMPANHAIR_VERSAO || '');
+
   // Alternador de tema (padrão: claro). A escolha fica salva no navegador.
   $('#btn-tema').addEventListener('click', () => {
     const raiz = document.documentElement;
@@ -76,6 +78,40 @@
   });
 
   for (const b of $$('[data-fechar]')) b.addEventListener('click', () => b.closest('dialog').close());
+
+  /**
+   * Confirmação no visual do sistema (substitui confirm/prompt do navegador, que podem ser
+   * bloqueados pelo "impedir caixas de diálogo" e passam a responder "cancelar" sozinhos).
+   * Com `palavra`, o botão só libera depois de a pessoa digitá-la. Resolve true/false.
+   */
+  function confirmar({ titulo, mensagem, botao = 'Confirmar', perigo = false, palavra = null }) {
+    return new Promise((resolve) => {
+      const dlg = $('#dlg-confirmar');
+      const ok = $('#conf-ok');
+      const input = $('#conf-input');
+      $('#conf-titulo').textContent = titulo;
+      $('#conf-mensagem').textContent = mensagem;
+      ok.textContent = botao;
+      ok.className = perigo ? 'perigo-cheio' : 'primario';
+      $('#conf-digitar').hidden = !palavra;
+      $('#conf-palavra').textContent = palavra || '';
+      input.value = '';
+      ok.disabled = !!palavra;
+      input.oninput = () => { ok.disabled = input.value.trim().toUpperCase() !== palavra; };
+      let resposta = false;
+      ok.onclick = (e) => {
+        e.preventDefault();
+        if (ok.disabled) return;
+        resposta = true;
+        dlg.close();
+      };
+      dlg.addEventListener('close', () => resolve(resposta), { once: true });
+      dlg.showModal();
+      (palavra ? input : ok).focus();
+    });
+  }
+  // Enter no campo de confirmação equivale a clicar no botão (se liberado).
+  $('#form-confirmar').addEventListener('submit', (e) => { e.preventDefault(); $('#conf-ok').click(); });
 
   // ------------------------------------------------------------------ início
 
@@ -86,13 +122,23 @@
 
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   if (window.pdfjsLib) {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    // O worker sai da mesma pasta/versão do pdf.min.js carregado no index.html (versão em um só lugar).
+    const scriptPdf = document.querySelector('script[src*="pdf.min.js"]');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = scriptPdf.src.replace(/pdf\.min\.js$/, 'pdf.worker.min.js');
   }
 
   sb.auth.onAuthStateChange((evento, sessao) => {
     if (evento === 'SIGNED_OUT' || !sessao) {
+      // Limpa tudo do usuário anterior: quem entrar em seguida neste navegador não pode ver nada dele.
+      pararTempoReal();
       estado.perfil = null;
+      estado.processos = [];
+      estado.perfis = [];
+      estado.selecionados.clear();
+      $('#tabela tbody').innerHTML = '';
+      $('#resumo').innerHTML = '';
+      $('#tabela-rodape').innerHTML = '';
+      $('#tabela-usuarios tbody').innerHTML = '';
       mostrarTela('tela-login');
     } else if (!estado.perfil || estado.perfil.id !== sessao.user.id) {
       iniciarSessao(sessao.user);
@@ -149,7 +195,7 @@
     await carregar();
   }
 
-  async function carregar() {
+  async function carregar({ manterSelecao = false } = {}) {
     if (!estado.processos.length) {
       $('#tabela tbody').innerHTML =
         '<tr class="carregando"><td colspan="12"><span class="girando"></span>Carregando empresas…</td></tr>';
@@ -162,10 +208,60 @@
     if (proc.error) return avisar('Erro ao carregar: ' + proc.error.message);
     estado.processos = proc.data;
     if (perf && !perf.error) estado.perfis = perf.data;
-    estado.selecionados.clear();
+    estado.carregadoEm = Date.now();
+    if (manterSelecao) {
+      const existem = new Set(estado.processos.map((p) => p.id));
+      for (const id of [...estado.selecionados]) if (!existem.has(id)) estado.selecionados.delete(id);
+    } else {
+      estado.selecionados.clear();
+    }
     preencherFiltros();
     renderizar();
+    assinarTempoReal();
   }
+
+  // ------------------------------------------------------------------ tempo real
+
+  // Mudanças feitas por outras pessoas chegam sozinhas (Supabase Realtime, respeitando as
+  // regras de acesso). O banco precisa ter a tabela na publicação (ver schema.sql).
+  let canal = null;
+  let renderAgendado = null;
+  function assinarTempoReal() {
+    if (canal || !sb.channel) return;
+    canal = sb.channel('processos-mudancas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'processos' }, aplicarMudanca)
+      .subscribe();
+  }
+  function pararTempoReal() {
+    if (canal) sb.removeChannel(canal);
+    canal = null;
+  }
+  function aplicarMudanca(msg) {
+    if (!estado.perfil) return;
+    const i = (id) => estado.processos.findIndex((p) => p.id === id);
+    if (msg.eventType === 'DELETE') {
+      const k = i(msg.old && msg.old.id);
+      if (k >= 0) estado.processos.splice(k, 1);
+    } else {
+      const novo = msg.new;
+      const visivel = ehAdmin() || (!novo.arquivado_em && novo.responsavel_id === estado.perfil.id);
+      const k = i(novo.id);
+      if (!visivel) { if (k >= 0) estado.processos.splice(k, 1); }
+      else if (k >= 0) estado.processos[k] = novo;
+      else estado.processos.push(novo);
+    }
+    // Junta rajadas de mudanças (ex.: alguém marcou 79 de uma vez) num único redesenho.
+    clearTimeout(renderAgendado);
+    renderAgendado = setTimeout(() => { preencherFiltros(); renderizar(); }, 250);
+  }
+
+  // Ao voltar para a aba depois de 1 min fora, recarrega tudo (cobre o que o tempo real não
+  // entrega, como uma empresa que deixou de ser sua quando o admin trocou o responsável).
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && estado.perfil && Date.now() - (estado.carregadoEm || 0) > 60000) {
+      carregar({ manterSelecao: true });
+    }
+  });
 
   // ------------------------------------------------------------------ abas
 
@@ -260,9 +356,9 @@
     try { localStorage.setItem(CHAVE_ABERTOS, JSON.stringify([...estado.abertos])); } catch (e) { /* ignora */ }
   }
 
-  // Busca por texto ou município escolhido no filtro abrem os grupos automaticamente,
+  // Busca por texto, município ou situação escolhidos no filtro abrem os grupos automaticamente,
   // para o resultado não ficar escondido dentro de um município fechado.
-  const gruposForcados = () => !!$('#f-busca').value.trim() || !!$('#f-lote').value;
+  const gruposForcados = () => !!$('#f-busca').value.trim() || !!$('#f-lote').value || !!$('#f-status').value;
 
   function agrupar(lista) {
     const grupos = new Map();
@@ -284,12 +380,14 @@
     let total = 0;
     let encerradas = 0;
     let paradas = 0;
+    let atrasadas = 0;
     let autos = 0;
     for (const p of itens) {
       total += Number(p.calculo);
       const s = Fluxo.situacao(p, agora, DIAS_PARADO);
       if (s.encerrado) encerradas++;
       if (!s.encerrado && s.parado) paradas++;
+      if (!s.encerrado && s.atrasada) atrasadas++;
       if (s.chave === 'auto') autos++;
     }
     const pagas = conta((p) => p.pagamento === 'pago');
@@ -330,7 +428,8 @@
       ${numero(autos, 'erro')}
       <td class="grupo-situacao">
         <span class="${encerradas === n ? 'ok' : ''}">${encerradas}/${n} encerradas</span>
-        ${paradas ? `<span class="etiqueta alerta">${paradas} ${paradas === 1 ? 'parada' : 'paradas'}</span>` : ''}
+        ${paradas ? `<span class="etiqueta alerta" title="Iniciadas e sem movimento há ${DIAS_PARADO}+ dias">${paradas} ${paradas === 1 ? 'parada' : 'paradas'}</span>` : ''}
+        ${atrasadas ? `<span class="etiqueta" title="Importadas há ${DIAS_PARADO}+ dias e sem nenhuma etapa">${atrasadas} não ${atrasadas === 1 ? 'iniciada' : 'iniciadas'}</span>` : ''}
       </td>
     </tr>`;
   }
@@ -351,7 +450,8 @@
   async function atribuirGrupo(chave, responsavel) {
     const ids = filtrados().filter((p) => lote(p) === chave).map((p) => p.id);
     const nome = responsavel ? nomePerfil(responsavel) : 'ninguém (sem responsável)';
-    if (!confirm(`Atribuir ${ids.length} empresa(s) de ${chave} a ${nome}?`)) return renderizar();
+    if (!(await confirmar({ titulo: 'Atribuir município', botao: 'Atribuir',
+      mensagem: `Atribuir ${ids.length} empresa(s) de ${chave} a ${nome}?` }))) return renderizar();
     const { error } = await atualizarEmLotes(ids, { responsavel_id: responsavel });
     if (error) { avisar(error.message); return carregar(); }
     avisar(`${ids.length} empresa(s) de ${chave} atribuída(s) a ${nome}.`, 'ok');
@@ -420,7 +520,7 @@
 
   function renderizarResumo(lista) {
     const agora = new Date();
-    const cont = { pago: 0, valorPago: 0, impugnado: 0, auto: 0, valorAuto: 0, parado: 0, andamento: 0, valorAndamento: 0 };
+    const cont = { pago: 0, valorPago: 0, impugnado: 0, auto: 0, valorAuto: 0, parado: 0, atrasada: 0, andamento: 0, valorAndamento: 0 };
     let total = 0;
     for (const p of lista) {
       total += Number(p.calculo);
@@ -430,6 +530,7 @@
       if (s.chave === 'auto') { cont.auto++; cont.valorAuto += Number(p.calculo); }
       if (!s.encerrado) { cont.andamento++; cont.valorAndamento += Number(p.calculo); }
       if (!s.encerrado && s.parado) cont.parado++;
+      if (!s.encerrado && s.atrasada) cont.atrasada++;
     }
     const pct = (n) => (lista.length ? `${Math.round((n / lista.length) * 100)}% das empresas` : '—');
     const indicador = (titulo, valor, sub, tom = '') =>
@@ -444,6 +545,7 @@
         admin ? `de ${distintos}</small><small>Cálculo total ${moeda(total)}` : `de ${distintos} · atribuídas a você`) +
       indicador('Em andamento', cont.andamento, admin ? `A recuperar ${moeda(cont.valorAndamento)}` : pct(cont.andamento)) +
       indicador('Paradas', cont.parado, `Sem movimento há ${DIAS_PARADO}+ dias`, cont.parado ? 'atencao' : '') +
+      indicador('Não iniciadas atrasadas', cont.atrasada, `Sem etapa há ${DIAS_PARADO}+ dias`, cont.atrasada ? 'atencao' : '') +
       indicador('Pagas', cont.pago, admin ? `Recuperado ${moeda(cont.valorPago)}` : pct(cont.pago), cont.pago ? 'ok' : '') +
       indicador('Impugnadas', cont.impugnado, pct(cont.impugnado)) +
       indicador('Autos de infração', cont.auto, admin ? `Valor ${moeda(cont.valorAuto)}` : pct(cont.auto), cont.auto ? 'erro' : '');
@@ -490,7 +592,7 @@
     }
 
     const posPagamento = p.pagamento === 'nao_pago';
-    const classeSituacao = s.encerrado ? (s.chave === 'auto' ? 'alerta' : 'ok') : (s.parado ? 'parado' : 'andamento');
+    const classeSituacao = s.encerrado ? (s.chave === 'auto' ? 'alerta' : 'ok') : (s.parado || s.atrasada ? 'parado' : 'andamento');
     const classeLinha = [
       s.encerrado && s.chave !== 'auto' ? 'encerrado' : '',
       s.chave === 'auto' ? 'linha-auto' : '',
@@ -498,7 +600,7 @@
     ].join(' ').trim();
 
     return `<tr class="${classeLinha}">
-      ${admin ? `<td><input type="checkbox" data-acao="selecionar" data-id="${p.id}" ${estado.selecionados.has(p.id) ? 'checked' : ''}></td>` : ''}
+      <td><input type="checkbox" data-acao="selecionar" data-id="${p.id}" ${estado.selecionados.has(p.id) ? 'checked' : ''}></td>
       <td class="empresa">${admin ? `<button class="link" data-acao="historico" data-id="${p.id}" title="Ver histórico">${esc(p.empresa)}</button>` : esc(p.empresa)}
         <small class="mono cnpj">${cnpjFmt(p.cnpj)}</small>
         ${admin ? '' : `<small>${esc(lote(p))}</small>`}</td>
@@ -514,7 +616,8 @@
       ${posPagamento ? caixa(p, 'impugnacao_em', pode.impugnacao_em) : '<td class="etapa"><span class="traco">—</span></td>'}
       <td class="etapa">${resposta}</td>
       ${posPagamento ? caixa(p, 'auto_infracao_em', pode.auto_infracao_em) : '<td class="etapa"><span class="traco">—</span></td>'}
-      <td><span class="situacao ${classeSituacao}">${esc(s.texto)}${s.parado && !s.encerrado ? ' · parada' : ''}</span></td>
+      <td><span class="situacao ${classeSituacao}">${esc(s.texto)}${s.parado && !s.encerrado ? ' · parada'
+        : s.atrasada && !s.encerrado ? ` há ${DIAS_PARADO}+ dias` : ''}</span></td>
     </tr>`;
   }
 
@@ -531,15 +634,18 @@
     return true;
   }
 
-  $('#tabela').addEventListener('change', (e) => {
+  $('#tabela').addEventListener('change', async (e) => {
     const el = e.target;
     const id = Number(el.dataset.id);
     switch (el.dataset.acao) {
       case 'etapa':
         // Desmarcar apaga a data registrada: pede confirmação para evitar clique acidental.
-        if (!el.checked && !confirm(`Desmarcar "${ROTULOS[el.dataset.campo]}"? A data registrada será apagada.`)) {
-          el.checked = true;
-          return;
+        if (!el.checked) {
+          el.checked = true; // só desmarca depois de confirmado
+          const ok = await confirmar({ titulo: 'Desmarcar etapa', botao: 'Desmarcar', perigo: true,
+            mensagem: `Desmarcar "${ROTULOS[el.dataset.campo]}"? A data registrada será apagada.` });
+          if (!ok) return;
+          el.checked = false;
         }
         if (el.checked) {
           // Marcar pede a data em que a etapa aconteceu (padrão: hoje).
@@ -569,7 +675,7 @@
     }
   });
 
-  $('#tabela').addEventListener('click', (e) => {
+  $('#tabela').addEventListener('click', async (e) => {
     // Linha do município: clicar em qualquer ponto (menos na caixa de seleção) abre/fecha.
     const grupo = e.target.closest('tr.grupo');
     if (grupo) {
@@ -594,7 +700,8 @@
     } else if (el.dataset.acao === 'pagamento') {
       const valor = el.dataset.valor || null;
       if (valor) abrirData({ id, campo: 'pagamento_em', pagamento: valor });
-      else if (confirm('Desfazer o registro de pagamento? A data registrada será apagada.')) {
+      else if (await confirmar({ titulo: 'Desfazer pagamento', botao: 'Desfazer', perigo: true,
+        mensagem: 'Desfazer o registro de pagamento? A data registrada será apagada.' })) {
         atualizar(id, { pagamento: null, pagamento_em: null });
       }
     } else if (el.dataset.acao === 'resposta') {
@@ -616,7 +723,7 @@
   function atualizarSelecao() {
     const n = estado.selecionados.size;
     $('#btn-arquivar-texto').textContent = $('#f-status').value === 'arquivadas' ? 'Restaurar' : 'Arquivar';
-    $('#barra-selecao').hidden = !ehAdmin() || n === 0;
+    $('#barra-selecao').hidden = n === 0;
     $('#sel-qtd').textContent = `${n} selecionada${n === 1 ? '' : 's'}`;
     const visiveis = filtrados();
     $('#sel-todos').checked = visiveis.length > 0 && visiveis.every((p) => estado.selecionados.has(p.id));
@@ -632,8 +739,9 @@
   $('#btn-atribuir').addEventListener('click', async () => {
     const ids = [...estado.selecionados];
     const resp = $('#sel-responsavel').value || null;
-    if (ids.length > LIMITE_SEM_DIGITAR && !confirmarDigitando(
-      `Atribuir ${ids.length} empresas a ${resp ? nomePerfil(resp) : 'ninguém'}?`, 'ATRIBUIR')) return;
+    if (!(await confirmar({ titulo: 'Atribuir empresas', botao: 'Atribuir',
+      mensagem: `Atribuir ${ids.length} empresa(s) a ${resp ? nomePerfil(resp) : 'ninguém (sem responsável)'}?`,
+      palavra: ids.length > LIMITE_SEM_DIGITAR ? 'ATRIBUIR' : null }))) return;
     const { error } = await atualizarEmLotes(ids, { responsavel_id: resp });
     if (error) { avisar(error.message); return carregar(); }
     avisar(`${ids.length} empresa(s) atribuída(s).`, 'ok');
@@ -642,12 +750,6 @@
 
   // Ações em massa acima deste número exigem digitar a palavra de confirmação.
   const LIMITE_SEM_DIGITAR = 20;
-  function confirmarDigitando(mensagem, palavra) {
-    const r = prompt(`${mensagem}\n\nPara confirmar, digite ${palavra}:`);
-    if (r === null) return false;
-    if (r.trim().toUpperCase() !== palavra) { avisar(`Cancelado: era preciso digitar ${palavra}.`); return false; }
-    return true;
-  }
 
   // Arquivar no lugar de excluir: some da lista, mantém andamento e histórico, pode ser restaurado.
   $('#btn-arquivar').addEventListener('click', async () => {
@@ -658,11 +760,91 @@
       ? `Restaurar ${ids.length} empresa(s)? Elas voltam para a lista com o andamento que tinham.`
       : `Arquivar ${ids.length} empresa(s)? Elas saem da lista (e da visão dos usuários), mas o andamento e o ` +
         'histórico são mantidos e podem ser restaurados pelo filtro Situação → Arquivadas.';
-    const ok = ids.length > LIMITE_SEM_DIGITAR ? confirmarDigitando(msg, verbo.toUpperCase()) : confirm(msg);
+    const ok = await confirmar({ titulo: `${verbo} empresas`, mensagem: msg, botao: verbo,
+      palavra: ids.length > LIMITE_SEM_DIGITAR ? verbo.toUpperCase() : null });
     if (!ok) return;
     const { error } = await atualizarEmLotes(ids, { arquivado_em: restaurar ? null : new Date().toISOString() });
     if (error) { avisar(error.message); return carregar(); }
     avisar(`${ids.length} empresa(s) ${restaurar ? 'restaurada(s)' : 'arquivada(s)'}.`, 'ok');
+    await carregar();
+  });
+
+  // ------------------------------------------------------------------ marcar etapa em lote
+
+  const dlgLote = $('#dlg-lote');
+  const OPCOES_LOTE = {
+    notificacao_elaboracao_em: { campo: 'notificacao_elaboracao_em' },
+    entrega_municipio_em: { campo: 'entrega_municipio_em' },
+    remessa_guia_em: { campo: 'remessa_guia_em' },
+    pago: { campo: 'pagamento_em', pagamento: 'pago' },
+    nao_pago: { campo: 'pagamento_em', pagamento: 'nao_pago' },
+    impugnacao_em: { campo: 'impugnacao_em' },
+    auto_infracao_em: { campo: 'auto_infracao_em' },
+  };
+
+  // Separa as selecionadas entre as que podem receber a etapa nessa data e as que serão puladas
+  // (mesmas regras da marcação individual, que o banco também confere).
+  function avaliarLote() {
+    const op = OPCOES_LOTE[$('#lote-etapa').value];
+    const dia = $('#lote-data').value;
+    const res = { aptas: [], ja: 0, anterior: 0, data: 0 };
+    for (const id of estado.selecionados) {
+      const p = estado.processos.find((x) => x.id === id);
+      if (!p || p.arquivado_em) continue;
+      const pode = Fluxo.permissoes(p);
+      const jaFeita = op.pagamento ? !!p.pagamento : !!p[op.campo];
+      if (jaFeita) { res.ja++; continue; }
+      if (!(op.pagamento ? pode.pagamento : pode[op.campo])) { res.anterior++; continue; }
+      const { min, max } = Fluxo.limitesData(p, op.campo);
+      if (!dia || (min && dia < min) || dia > max) { res.data++; continue; }
+      res.aptas.push(p.id);
+    }
+    return res;
+  }
+
+  function atualizarResumoLote() {
+    const r = avaliarLote();
+    const item = (n, txt) => (n ? `<li class="pulada">${n} ${txt}</li>` : '');
+    $('#lote-resumo').innerHTML =
+      `<li class="apta"><strong>${r.aptas.length}</strong> ${r.aptas.length === 1 ? 'empresa será marcada' : 'empresas serão marcadas'}</li>` +
+      item(r.ja, 'puladas: já têm esta etapa') +
+      item(r.anterior, 'puladas: falta a etapa anterior (ou não se aplica)') +
+      item(r.data, 'puladas: a data fica fora da ordem das outras etapas dessa empresa');
+    $('#lote-ok').disabled = r.aptas.length === 0;
+    $('#lote-ok').textContent = `Marcar ${r.aptas.length}`;
+  }
+
+  $('#btn-marcar-lote').addEventListener('click', () => {
+    $('#lote-ref').textContent = `${estado.selecionados.size} empresa(s) selecionada(s)`;
+    $('#lote-data').max = Fluxo.diaLocal(new Date());
+    $('#lote-data').value = Fluxo.diaLocal(new Date());
+    atualizarResumoLote();
+    dlgLote.showModal();
+  });
+  $('#lote-etapa').addEventListener('change', atualizarResumoLote);
+  $('#lote-data').addEventListener('input', atualizarResumoLote);
+
+  $('#form-lote').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const r = avaliarLote();
+    if (!r.aptas.length) return;
+    const op = OPCOES_LOTE[$('#lote-etapa').value];
+    const patch = { [op.campo]: paraTimestamp($('#lote-data').value) };
+    if (op.pagamento) patch.pagamento = op.pagamento;
+    $('#lote-ok').disabled = true;
+    let { error, feitos } = await atualizarEmLotes(r.aptas, patch);
+    let falhas = 0;
+    if (error) {
+      // Algum caso mudou desde que a tela carregou: tenta o restante uma a uma e conta as recusadas.
+      for (const id of r.aptas.slice(feitos)) {
+        const { error: erro1 } = await sb.from('processos').update(patch).eq('id', id);
+        if (erro1) falhas++;
+      }
+    }
+    dlgLote.close();
+    const marcadas = r.aptas.length - falhas;
+    const puladas = r.ja + r.anterior + r.data + falhas;
+    avisar(`${marcadas} empresa(s) marcada(s)${puladas ? `; ${puladas} pulada(s)` : ''}.`, marcadas ? 'ok' : 'erro');
     await carregar();
   });
 
@@ -794,7 +976,8 @@
   });
 
   $('#resp-remover').addEventListener('click', async () => {
-    if (!confirm('Remover a resposta registrada?')) return;
+    if (!(await confirmar({ titulo: 'Remover resposta', botao: 'Remover', perigo: true,
+      mensagem: 'Remover a resposta registrada (resultado, data e teor)?' }))) return;
     const ok = await atualizar(estado.respostaId, { resposta_resultado: null, resposta_teor: null, resposta_em: null });
     if (ok) dlgResposta.close();
   });
@@ -842,12 +1025,13 @@
     const agora = new Date();
     $('#tabela-usuarios tbody').innerHTML = estado.perfis.map((u) => {
       const seus = ativos().filter((p) => p.responsavel_id === u.id);
-      let andamento = 0; let parados = 0; let pagos = 0; let autos = 0; let valor = 0;
+      let andamento = 0; let parados = 0; let atrasadas = 0; let pagos = 0; let autos = 0; let valor = 0;
       for (const p of seus) {
         const s = Fluxo.situacao(p, agora, DIAS_PARADO);
         valor += Number(p.calculo);
         if (!s.encerrado) andamento++;
         if (!s.encerrado && s.parado) parados++;
+        if (!s.encerrado && s.atrasada) atrasadas++;
         if (s.chave === 'pago') pagos++;
         if (s.chave === 'auto') autos++;
       }
@@ -855,7 +1039,7 @@
         <td>${esc(u.nome)}</td><td>${esc(u.email)}</td>
         <td><span class="etiqueta ${u.papel === 'admin' ? 'info' : ''}">${u.papel === 'admin' ? 'Administrador' : 'Usuário'}</span></td>
         <td class="num">${seus.length}</td><td class="num">${moeda(valor)}</td>
-        <td class="num">${andamento}</td><td class="num">${parados}</td>
+        <td class="num">${andamento}</td><td class="num">${parados}</td><td class="num">${atrasadas}</td>
         <td class="num">${pagos}</td><td class="num">${autos}</td>
         <td><button class="link" data-ver="${u.id}">ver empresas</button></td>
       </tr>`;
