@@ -4,6 +4,9 @@ Cada versão corresponde a um commit na branch `main` do GitHub. A versão em us
 cabeçalho do site. Para ver ou voltar a uma versão: GitHub → **Commits** → procurar o código do commit.
 Versões marcadas com **Banco** exigiram rodar o `supabase/schema.sql` no Supabase.
 
+Para marcar uma versão no GitHub (opcional, não altera o site): **Releases → Draft a new release →
+Choose a tag** (ex.: `v1.17`) → em **Target**, escolher o commit da versão → **Publish release**.
+
 ## v1.17 — 23/10/2026
 Commit: `0e60f83`
 
