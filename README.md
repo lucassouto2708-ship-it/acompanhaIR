@@ -146,6 +146,9 @@ Não há etapa de build: são arquivos estáticos. As bibliotecas (supabase-js e
 
 ## Publicando uma nova versão
 
+O histórico de versões, com data e commit de cada uma, está em [`CHANGELOG.md`](CHANGELOG.md).
+
+
 O GitHub Pages guarda os arquivos em cache por até 10 minutos. A cada publicação, altere **só** a
 linha `window.ACOMPANHAIR_VERSAO = '…'` no topo do `index.html`: o número vai no endereço do CSS e
 dos scripts (o navegador busca todos os arquivos novos juntos) e aparece no selo do cabeçalho.
