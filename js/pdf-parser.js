@@ -201,7 +201,9 @@
 
   /** Extrai os itens de texto de um arquivo PDF usando pdf.js (navegador). */
   async function lerPdf(pdfjsLib, arrayBuffer) {
-    const doc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    // isEvalSupported: false é a proteção oficial do pdf.js contra a falha CVE-2024-4367
+    // (execução de código por um PDF malicioso nas versões anteriores à 4.2.67).
+    const doc = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
     const paginas = [];
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);

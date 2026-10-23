@@ -29,6 +29,9 @@
     return p ? (p.nome || p.email) : '';
   };
   const lote = (p) => `${p.municipio}${p.uf ? '/' + p.uf : ''} ${p.ano}`;
+  // Chave para comparar grafias de município: "SÃO JOÃO D'ALIANÇA" = "SAO JOAO D ALIANCA".
+  const chaveMunicipio = (m) => String(m || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 
   // O Supabase devolve no máximo 1.000 linhas por consulta: busca página por página até acabar.
   const TAMANHO_PAGINA = 1000;
@@ -219,6 +222,84 @@
     renderizar();
     assinarTempoReal();
   }
+
+  // ------------------------------------------------------------------ grafias diferentes do mesmo município (admin)
+
+  // Agrupa as grafias cadastradas que são o mesmo município (mesma chave e UF).
+  function grafiasDivergentes() {
+    const porChave = new Map();
+    for (const p of ativos()) {
+      const k = `${chaveMunicipio(p.municipio)}|${p.uf || ''}`;
+      if (!porChave.has(k)) porChave.set(k, new Map());
+      const grafias = porChave.get(k);
+      grafias.set(p.municipio, (grafias.get(p.municipio) || 0) + 1);
+    }
+    return [...porChave.values()].filter((g) => g.size > 1).map((g) => {
+      // Fica a grafia com mais empresas; no empate, a que tem acentos (mais completa).
+      const lista = [...g.entries()].sort((a, b) => b[1] - a[1] || b[0].normalize('NFD').length - a[0].normalize('NFD').length);
+      return { alvo: lista[0][0], outras: lista.slice(1).map(([nome, qtd]) => ({ nome, qtd })) };
+    });
+  }
+
+  // O que a unificação faria: quais mover e quantas são duplicadas (mesmo CNPJ/ano já na grafia certa).
+  function analisarUnificacao(d) {
+    const nomesOutros = new Set(d.outras.map((o) => o.nome));
+    // Inclui as arquivadas: o banco não aceita o mesmo CNPJ/município/ano duas vezes, nem se uma estiver arquivada.
+    const doAlvo = new Set(estado.processos.filter((p) => p.municipio === d.alvo).map((p) => `${p.cnpj}|${p.ano}`));
+    const mover = [];
+    const duplicadas = [];
+    for (const p of estado.processos) {
+      if (!nomesOutros.has(p.municipio)) continue;
+      if (doAlvo.has(`${p.cnpj}|${p.ano}`)) duplicadas.push(p); else mover.push(p.id);
+    }
+    return { nomesOutros, mover, duplicadas };
+  }
+
+  function renderizarAvisoGrafias() {
+    const el = $('#aviso-grafia');
+    const divergentes = ehAdmin() ? grafiasDivergentes() : [];
+    el.hidden = !divergentes.length;
+    el.innerHTML = divergentes.map((d, i) => `<div class="faixa-aviso-item">
+      <svg class="ic"><use href="#i-alerta"/></svg>
+      <span>Possível município duplicado: <strong>${esc(d.alvo)}</strong> também aparece como
+        ${d.outras.map((o) => `<strong>${esc(o.nome)}</strong> (${o.qtd} ${o.qtd === 1 ? 'empresa' : 'empresas'})`).join(', ')}.</span>
+      ${(() => {
+        const a = analisarUnificacao(d);
+        return a.mover.length
+          ? `<button type="button" class="secundario compacto" data-unificar="${i}">Unificar como ${esc(d.alvo)}</button>`
+          : `<em>São duplicadas de empresas que já existem em ${esc(d.alvo)}: confira e arquive as repetidas.</em>
+             <button type="button" class="secundario compacto" data-ver-duplicadas="${i}">Ver duplicadas</button>`;
+      })()}
+    </div>`).join('');
+  }
+
+  $('#aviso-grafia').addEventListener('click', async (e) => {
+    const ver = e.target.closest('[data-ver-duplicadas]')?.dataset.verDuplicadas;
+    if (ver !== undefined) {
+      // Mostra as duplicadas: filtra pelo município/ano da grafia divergente.
+      const d = grafiasDivergentes()[Number(ver)];
+      const p = d && analisarUnificacao(d).duplicadas.find((x) => !x.arquivado_em);
+      if (p) { $('#f-busca').value = ''; $('#f-status').value = ''; $('#f-lote').value = lote(p); renderizar(); }
+      return;
+    }
+    const i = e.target.closest('[data-unificar]')?.dataset.unificar;
+    if (i === undefined) return;
+    const d = grafiasDivergentes()[Number(i)];
+    if (!d) return;
+    const { nomesOutros, mover, duplicadas: dup } = analisarUnificacao(d);
+    const duplicadas = dup.length;
+    const ok = await confirmar({
+      titulo: 'Unificar grafia do município', botao: 'Unificar',
+      mensagem: `Renomear ${mover.length} empresa(s) de ${[...nomesOutros].join(', ')} para ${d.alvo}?` +
+        (duplicadas ? `\n\n${duplicadas} empresa(s) já existem em ${d.alvo} no mesmo ano (estão duplicadas) ` +
+          'e não serão movidas: confira-as e arquive as repetidas.' : ''),
+    });
+    if (!ok) return;
+    const { error } = await atualizarEmLotes(mover, { municipio: d.alvo });
+    if (error) { avisar(error.message); return carregar(); }
+    avisar(`${mover.length} empresa(s) unificada(s) em ${d.alvo}.${duplicadas ? ` ${duplicadas} duplicada(s) ficaram para conferência.` : ''}`, 'ok');
+    await carregar();
+  });
 
   // ------------------------------------------------------------------ tempo real
 
@@ -491,6 +572,7 @@
   function renderizar() {
     const lista = ordenar(filtrados());
     renderizarResumo(lista);
+    renderizarAvisoGrafias();
     $('#tabela tbody').innerHTML = ehAdmin() ? corpoAgrupado(lista) : lista.map(linhaHtml).join('');
     $('#vazio').hidden = lista.length > 0;
     if (!lista.length) {
@@ -1128,6 +1210,8 @@
       $('#imp-uf').value = r.uf || '';
       $('#imp-ano').value = r.ano || '';
       estado.importacao = r;
+      $('#imp-grafia').hidden = true;
+      ajustarGrafiaMunicipio();
       await marcarExistentes();
       renderizarPrevia();
       if (!r.municipio) $('#imp-municipio').focus();
@@ -1172,9 +1256,31 @@
     });
   }
 
+  // Se o município já existe com outra grafia (acento, pontuação), usa a grafia cadastrada:
+  // sem isso "SAO JOAO" e "SÃO JOÃO" virariam municípios diferentes e a empresa seria duplicada.
+  function ajustarGrafiaMunicipio() {
+    const campo = $('#imp-municipio');
+    const digitado = campo.value.trim().replace(/\s+/g, ' ').toUpperCase();
+    const uf = $('#imp-uf').value.trim().toUpperCase();
+    const chave = chaveMunicipio(digitado);
+    const existente = chave && estado.processos.find((p) =>
+      chaveMunicipio(p.municipio) === chave && (!uf || !p.uf || p.uf === uf));
+    const aviso = $('#imp-grafia');
+    if (existente && existente.municipio !== digitado) {
+      campo.value = existente.municipio;
+      if (!uf && existente.uf) $('#imp-uf').value = existente.uf;
+      aviso.textContent = `"${digitado}" já está cadastrado como "${existente.municipio}": usando a grafia cadastrada ` +
+        'para não duplicar o município.';
+      aviso.hidden = false;
+    } else if (!existente) {
+      aviso.hidden = true;
+    }
+  }
+
   for (const id of ['#imp-municipio', '#imp-uf', '#imp-ano']) {
     $(id).addEventListener('change', async () => {
       if (!estado.importacao) return;
+      if (id !== '#imp-ano') ajustarGrafiaMunicipio();
       await marcarExistentes();
       renderizarPrevia();
     });

@@ -18,7 +18,7 @@
   <script>
     // VERSÃO DO SITE: altere só aqui a cada publicação. O número vai no endereço do CSS/JS
     // e obriga o navegador a buscar os arquivos novos juntos (o GitHub Pages guarda cache por ~10 min).
-    window.ACOMPANHAIR_VERSAO = '1.16';
+    window.ACOMPANHAIR_VERSAO = '1.17';
     document.write('<link rel="stylesheet" href="css/style.css?v=' + window.ACOMPANHAIR_VERSAO + '">');
   </script>
 </head>
@@ -127,6 +127,7 @@
           </div>
         </div>
 
+        <div id="aviso-grafia" class="faixa-aviso so-admin" hidden></div>
         <div id="resumo" class="resumo"></div>
 
         <div class="painel">
@@ -261,6 +262,7 @@
               <label class="campo">Ano <input id="imp-ano" type="number" min="2000" max="2100" step="1" required></label>
               <label class="campo">Responsável <select id="imp-responsavel"></select></label>
             </div>
+            <p id="imp-grafia" class="nota-grafia" hidden></p>
             <ul id="previa-avisos" class="avisos"></ul>
             <div class="linha-acoes rodape-painel">
               <span id="imp-status" class="sutil">Empresas já cadastradas no mesmo município e ano são ignoradas.</span>
@@ -412,8 +414,9 @@
 
   <div id="aviso" class="aviso" hidden></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Bibliotecas servidas pelo próprio site (ver vendor/README.md), sem depender de CDN de terceiros -->
+  <script src="vendor/supabase-js-2.117.2/supabase.js"></script>
+  <script src="vendor/pdfjs-3.11.174/pdf.min.js"></script>
   <script>
     ['js/config.js', 'js/pdf-parser.js', 'js/fluxo.js', 'js/app.js'].forEach(function (arq) {
       document.write('<script src="' + arq + '?v=' + window.ACOMPANHAIR_VERSAO + '"><\/script>');

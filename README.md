@@ -102,6 +102,10 @@ dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb
    completa os nomes cortados pela Receita Federal (BrasilAPI, com alternativas) e, quando o CNPJ
    veio ilegível, pede para digitá-lo na prévia. Nomes e CNPJs dessas linhas podem ser editados
    antes de importar.
+   Se o município já estiver cadastrado com outra grafia (com/sem acento, pontuação), a importação
+   usa a grafia cadastrada. Grafias diferentes já existentes aparecem num aviso no Acompanhamento,
+   com o botão **Unificar** (empresas que seriam duplicadas não são movidas: use **Ver duplicadas**
+   e arquive as repetidas).
 2. **Distribuir** (admin): na aba Acompanhamento, selecione empresas e use **Atribuir**, ou troque
    o responsável linha a linha.
 3. **Acompanhar**: cada usuário marca as etapas das suas empresas. Para o admin, a lista vem
@@ -134,10 +138,11 @@ js/app.js             lógica da interface
 js/fluxo.js           regras das etapas e situação do processo
 js/pdf-parser.js      leitura do relatório geral em PDF (pdf.js)
 supabase/schema.sql   tabelas, validação das etapas, histórico e regras de acesso (RLS)
+vendor/               bibliotecas (supabase-js, pdf.js) servidas pelo próprio site — ver vendor/README.md
 ```
 
-Não há etapa de build: são arquivos estáticos. As bibliotecas (supabase-js e pdf.js) são
-carregadas de CDN com versão fixa.
+Não há etapa de build: são arquivos estáticos. As bibliotecas (supabase-js e pdf.js) ficam na pasta
+`vendor/`, copiadas dos pacotes oficiais do npm: o site não executa código de servidores de terceiros.
 
 ## Publicando uma nova versão
 
