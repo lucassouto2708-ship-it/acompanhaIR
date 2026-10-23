@@ -128,6 +128,10 @@ dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb
 > **Plano gratuito do Supabase:** o projeto é pausado após 7 dias sem uso, e o site para até alguém
 > reativá-lo no painel do Supabase (Project → Restore). Com uso semanal isso não acontece.
 
+## Testes
+
+A pasta [`tests/`](tests/README.md) tem os testes automáticos do site e do banco (`npm test` dentro dela).
+
 ## Estrutura
 
 ```

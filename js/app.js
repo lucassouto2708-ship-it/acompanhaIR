@@ -388,7 +388,9 @@
 
   function filtrados() {
     const busca = $('#f-busca').value.trim().toLowerCase();
-    const buscaDig = busca.replace(/\D/g, '');
+    // Só compara com o CNPJ quando o texto parece um CNPJ (números, ponto, barra, traço); senão
+    // "EMPRESA 1" acharia todo CNPJ que tem o dígito 1.
+    const buscaDig = /^[\d.\/\-\s]+$/.test(busca) ? busca.replace(/\D/g, '') : '';
     const fLote = $('#f-lote').value;
     const fStatus = $('#f-status').value;
     const fResp = ehAdmin() ? $('#f-responsavel').value : '';
