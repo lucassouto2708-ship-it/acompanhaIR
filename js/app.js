@@ -634,7 +634,10 @@
       indicador('Em andamento', cont.andamento, admin ? `A recuperar ${moeda(cont.valorAndamento)}` : pct(cont.andamento)) +
       indicador('Paradas', cont.parado, `Sem movimento há ${DIAS_PARADO}+ dias`, cont.parado ? 'atencao' : '') +
       indicador('Não iniciadas atrasadas', cont.atrasada, `Sem etapa há ${DIAS_PARADO}+ dias`, cont.atrasada ? 'atencao' : '') +
-      indicador('Pagas', cont.pago, admin ? `Recuperado ${moeda(cont.valorPago)}` : pct(cont.pago), cont.pago ? 'ok' : '') +
+      (admin
+        // Admin: o valor recuperado em destaque (verde) e a quantidade de guias pagas embaixo.
+        ? indicador('Pagas', moeda(cont.valorPago), `${cont.pago} ${cont.pago === 1 ? 'guia paga' : 'guias pagas'}`, cont.valorPago ? 'ok' : '')
+        : indicador('Pagas', cont.pago, pct(cont.pago), cont.pago ? 'ok' : '')) +
       indicador('Impugnadas', cont.impugnado, pct(cont.impugnado)) +
       indicador('Autos de infração', cont.auto, admin ? `Valor ${moeda(cont.valorAuto)}` : pct(cont.auto), cont.auto ? 'erro' : '');
   }

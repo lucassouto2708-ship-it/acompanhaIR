@@ -7,6 +7,10 @@ Versões marcadas com **Banco** exigiram rodar o `supabase/schema.sql` no Supaba
 Para marcar uma versão no GitHub (opcional, não altera o site): **Releases → Draft a new release →
 Choose a tag** (ex.: `v1.17`) → em **Target**, escolher o commit da versão → **Publish release**.
 
+## v1.21 — 26/10/2026
+
+- Indicador "Pagas" (só admin): valor recuperado em destaque, em verde, e a quantidade de guias pagas embaixo
+
 ## v1.20 — 26/10/2026
 
 - Marcar etapa em lote: o diálogo já abre com a próxima etapa das empresas selecionadas (a que mais delas podem receber); no pagamento, a escolha entre Pago e Não pago continua sendo da pessoa

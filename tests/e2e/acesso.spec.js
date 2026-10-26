@@ -71,3 +71,19 @@ test('o site não carrega código de servidores externos e mostra a versão', as
   await expect(page.locator('#versao')).toHaveText(`v${versao}`);
   expect(await page.evaluate(() => pdfjsLib.GlobalWorkerOptions.workerSrc)).toContain('/vendor/pdfjs-');
 });
+
+test('indicador "Pagas": admin vê o valor recuperado em destaque e as guias embaixo; usuário vê só a quantidade', async ({ page }) => {
+  await abrirApp(page);
+  await semear(page, empresas(4, () => 'b').map((e, i) => ({ ...e, calculo: 1000 + i,
+    ...(i < 3 ? { notificacao_elaboracao_em: new Date().toISOString(), entrega_municipio_em: new Date().toISOString(),
+      remessa_guia_em: new Date().toISOString(), pagamento: 'pago', pagamento_em: new Date().toISOString() } : {}) })));
+  await entrar(page);
+  const pagas = page.locator('.indicador', { hasText: 'Pagas' });
+  await expect(pagas.locator('strong')).toHaveText('R$ 3.003,00');
+  await expect(pagas.locator('small')).toHaveText('3 guias pagas');
+  await expect(pagas).toHaveClass(/ok/);
+  await sair(page);
+  await entrar(page, 'ana@x.com');
+  await expect(pagas.locator('strong')).toHaveText('3');
+  await expect(pagas.locator('small')).toHaveText('75% das empresas');
+});
