@@ -7,6 +7,11 @@ Versões marcadas com **Banco** exigiram rodar o `supabase/schema.sql` no Supaba
 Para marcar uma versão no GitHub (opcional, não altera o site): **Releases → Draft a new release →
 Choose a tag** (ex.: `v1.17`) → em **Target**, escolher o commit da versão → **Publish release**.
 
+## v1.20 — 26/10/2026
+
+- Marcar etapa em lote: o diálogo já abre com a próxima etapa das empresas selecionadas (a que mais delas podem receber); no pagamento, a escolha entre Pago e Não pago continua sendo da pessoa
+- A seleção continua marcada depois de marcar em lote, para seguir direto para a próxima etapa
+
 ## v1.19 — 23/10/2026
 
 - Corrige a busca: um nome com número (ex.: "EMPRESA 1") era comparado com os dígitos do CNPJ e trazia empresas que não tinham nada a ver; agora só compara com o CNPJ quando o texto parece um CNPJ

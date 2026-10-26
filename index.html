@@ -18,7 +18,7 @@
   <script>
     // VERSÃO DO SITE: altere só aqui a cada publicação. O número vai no endereço do CSS/JS
     // e obriga o navegador a buscar os arquivos novos juntos (o GitHub Pages guarda cache por ~10 min).
-    window.ACOMPANHAIR_VERSAO = '1.19';
+    window.ACOMPANHAIR_VERSAO = '1.20';
     document.write('<link rel="stylesheet" href="css/style.css?v=' + window.ACOMPANHAIR_VERSAO + '">');
   </script>
 </head>
@@ -378,6 +378,7 @@
         <div class="campos-dupla">
           <label class="campo">Etapa
             <select id="lote-etapa">
+              <option value="" disabled>Selecione a etapa…</option>
               <option value="notificacao_elaboracao_em">Notificação elaboração</option>
               <option value="entrega_municipio_em">Entrega município</option>
               <option value="remessa_guia_em">Remessa notificação c/ guia</option>

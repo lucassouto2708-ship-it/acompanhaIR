@@ -872,10 +872,11 @@
 
   // Separa as selecionadas entre as que podem receber a etapa nessa data e as que serão puladas
   // (mesmas regras da marcação individual, que o banco também confere).
-  function avaliarLote() {
-    const op = OPCOES_LOTE[$('#lote-etapa').value];
+  function avaliarLote(etapa = $('#lote-etapa').value) {
+    const op = OPCOES_LOTE[etapa];
     const dia = $('#lote-data').value;
     const res = { aptas: [], ja: 0, anterior: 0, data: 0 };
+    if (!op) return res;
     for (const id of estado.selecionados) {
       const p = estado.processos.find((x) => x.id === id);
       if (!p || p.arquivado_em) continue;
@@ -893,6 +894,12 @@
   function atualizarResumoLote() {
     const r = avaliarLote();
     const item = (n, txt) => (n ? `<li class="pulada">${n} ${txt}</li>` : '');
+    if (!$('#lote-etapa').value) {
+      $('#lote-resumo').innerHTML = '<li>Escolha a etapa (no pagamento, a escolha entre Pago e Não pago é sempre sua).</li>';
+      $('#lote-ok').disabled = true;
+      $('#lote-ok').textContent = 'Marcar';
+      return;
+    }
     $('#lote-resumo').innerHTML =
       `<li class="apta"><strong>${r.aptas.length}</strong> ${r.aptas.length === 1 ? 'empresa será marcada' : 'empresas serão marcadas'}</li>` +
       item(r.ja, 'puladas: já têm esta etapa') +
@@ -906,9 +913,24 @@
     $('#lote-ref').textContent = `${estado.selecionados.size} empresa(s) selecionada(s)`;
     $('#lote-data').max = Fluxo.diaLocal(new Date());
     $('#lote-data').value = Fluxo.diaLocal(new Date());
+    $('#lote-etapa').value = proximaEtapaLote();
     atualizarResumoLote();
     dlgLote.showModal();
   });
+
+  // Etapa sugerida: a que mais empresas selecionadas podem receber agora (no empate, a primeira
+  // do fluxo). Quando a próxima é o pagamento, não escolhe entre Pago e Não pago pela pessoa.
+  function proximaEtapaLote() {
+    let melhor = '';
+    let maior = 0;
+    for (const etapa of Object.keys(OPCOES_LOTE)) {
+      if (OPCOES_LOTE[etapa].pagamento) continue;
+      const n = avaliarLote(etapa).aptas.length;
+      if (n > maior) { maior = n; melhor = etapa; }
+    }
+    const noPagamento = avaliarLote('pago').aptas.length;
+    return noPagamento > maior ? '' : melhor;
+  }
   $('#lote-etapa').addEventListener('change', atualizarResumoLote);
   $('#lote-data').addEventListener('input', atualizarResumoLote);
 
@@ -933,7 +955,8 @@
     const marcadas = r.aptas.length - falhas;
     const puladas = r.ja + r.anterior + r.data + falhas;
     avisar(`${marcadas} empresa(s) marcada(s)${puladas ? `; ${puladas} pulada(s)` : ''}.`, marcadas ? 'ok' : 'erro');
-    await carregar();
+    // Mantém a seleção: a próxima etapa das mesmas empresas fica a dois cliques.
+    await carregar({ manterSelecao: true });
   });
 
   // ------------------------------------------------------------------ data das etapas

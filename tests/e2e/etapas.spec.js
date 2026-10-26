@@ -105,3 +105,38 @@ test('marcar etapa em lote: marca as aptas e informa as puladas (usuário comum 
   await expect(page.locator('#aviso')).toContainText('3 empresa(s) marcada(s); 3 pulada(s)');
   expect((await banco(page)).processos.filter((p) => p.entrega_municipio_em)).toHaveLength(3);
 });
+
+test('lote em sequência: a próxima etapa já vem escolhida e a seleção continua', async ({ page }) => {
+  await abrirApp(page);
+  await semear(page, Array.from({ length: 4 }, (_, i) => ({ id: i + 1, municipio: 'MANTENA', empresa: `EMPRESA ${i + 1}`,
+    cnpj: String(10000000000000 + i + 1), responsavel_id: 'b', notificacao_elaboracao_em: isoAtras(5) })));
+  await entrar(page, 'ana@x.com');
+  await page.check('#sel-todos');
+  const marcar = async () => {
+    await page.click('#lote-ok');
+    await expect(page.locator('#dlg-lote')).toBeHidden();
+  };
+
+  await page.click('#btn-marcar-lote');
+  await expect(page.locator('#lote-etapa')).toHaveValue('entrega_municipio_em');
+  await expect(page.locator('#lote-ok')).toHaveText('Marcar 4');
+  await marcar();
+  await expect(page.locator('#sel-qtd')).toHaveText('4 selecionadas'); // seleção mantida
+
+  await page.click('#btn-marcar-lote');
+  await expect(page.locator('#lote-etapa')).toHaveValue('remessa_guia_em');
+  await marcar();
+
+  // próxima é o pagamento: a pessoa escolhe entre Pago e Não pago
+  await page.click('#btn-marcar-lote');
+  await expect(page.locator('#lote-etapa')).toHaveValue('');
+  await expect(page.locator('#lote-ok')).toBeDisabled();
+  await page.selectOption('#lote-etapa', 'nao_pago');
+  await expect(page.locator('#lote-ok')).toHaveText('Marcar 4');
+  await marcar();
+
+  await page.click('#btn-marcar-lote');
+  await expect(page.locator('#lote-etapa')).toHaveValue('impugnacao_em');
+  const db = await banco(page);
+  expect(db.processos.every((p) => p.entrega_municipio_em && p.remessa_guia_em && p.pagamento === 'nao_pago')).toBe(true);
+});
