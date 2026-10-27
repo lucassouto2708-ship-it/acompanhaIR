@@ -18,7 +18,7 @@
   <script>
     // VERSÃO DO SITE: altere só aqui a cada publicação. O número vai no endereço do CSS/JS
     // e obriga o navegador a buscar os arquivos novos juntos (o GitHub Pages guarda cache por ~10 min).
-    window.ACOMPANHAIR_VERSAO = '1.21';
+    window.ACOMPANHAIR_VERSAO = '1.22';
     document.write('<link rel="stylesheet" href="css/style.css?v=' + window.ACOMPANHAIR_VERSAO + '">');
   </script>
 </head>
@@ -205,9 +205,10 @@
         <div class="cabecalho-pagina">
           <div>
             <h1>Usuários e carteiras</h1>
-            <p>Andamento por responsável. Novos usuários são criados no painel do Supabase
-              (Authentication → Users → Add user).</p>
+            <p>Andamento por responsável e gestão de acesso: cadastre pessoas, troque senhas e bloqueie
+              o acesso de quem saiu da equipe (o histórico do que a pessoa fez é mantido).</p>
           </div>
+          <button id="btn-novo-usuario" class="primario" type="button"><svg class="ic"><use href="#i-usuarios"/></svg>Novo usuário</button>
           <div class="backup">
             <button id="btn-backup" class="secundario" type="button" title="Baixa uma cópia completa: empresas (inclusive arquivadas), histórico e usuários">
               <svg class="ic"><use href="#i-download"/></svg>Backup completo</button>
@@ -222,7 +223,7 @@
                   <th>Nome</th><th>E-mail</th><th>Papel</th>
                   <th class="num">Empresas</th><th class="num">Valor</th>
                   <th class="num">Em andamento</th><th class="num">Paradas</th><th class="num">Não iniciadas atrasadas</th>
-                  <th class="num">Pagos</th><th class="num">Autos</th><th></th>
+                  <th class="num">Pagos</th><th class="num">Autos</th><th>Ações</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -398,6 +399,56 @@
         <button type="submit" id="lote-ok" class="primario">Marcar</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Cadastro / edição de usuário (admin) -->
+  <dialog id="dlg-usuario">
+    <form method="dialog" id="form-usuario" novalidate>
+      <div class="dlg-topo">
+        <h2 id="usr-titulo">Novo usuário</h2>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+      </div>
+      <div class="dlg-corpo">
+        <label class="campo">Nome <input type="text" id="usr-nome" maxlength="120" autocomplete="off"></label>
+        <label class="campo">E-mail <input type="email" id="usr-email" maxlength="200" autocomplete="off"></label>
+        <div class="campo" id="usr-bloco-senha">
+          <label for="usr-senha">Senha provisória</label>
+          <div class="senha-gerar">
+            <input type="text" id="usr-senha" maxlength="72" autocomplete="off" spellcheck="false">
+            <button type="button" id="usr-gerar" class="secundario">Gerar</button>
+          </div>
+          <small>Mínimo de 8 caracteres. Envie à pessoa por um canal privado.</small>
+        </div>
+        <label class="campo">Papel
+          <select id="usr-papel">
+            <option value="usuario">Usuário — vê e marca só as empresas atribuídas a ele</option>
+            <option value="admin">Administrador — vê tudo, importa, atribui e gerencia usuários</option>
+          </select>
+        </label>
+      </div>
+      <div class="dlg-rodape">
+        <span class="espaco"></span>
+        <button type="button" class="secundario" data-fechar>Cancelar</button>
+        <button type="submit" id="usr-salvar" class="primario">Cadastrar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Dados de acesso para enviar à pessoa -->
+  <dialog id="dlg-credenciais">
+    <div class="dlg-topo">
+      <h2 id="cred-titulo">Acesso criado</h2>
+      <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+    </div>
+    <div class="dlg-corpo">
+      <p>Envie estes dados à pessoa por um canal privado. A senha não fica visível depois que esta janela fechar.</p>
+      <pre id="cred-texto" class="credenciais"></pre>
+    </div>
+    <div class="dlg-rodape">
+      <span class="espaco"></span>
+      <button type="button" id="cred-copiar" class="secundario">Copiar</button>
+      <button type="button" class="primario" data-fechar>Concluir</button>
+    </div>
   </dialog>
 
   <!-- Histórico (admin) -->

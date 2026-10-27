@@ -91,6 +91,32 @@ delete from processos where empresa = 'ANA 1';
 select teste.verifica(exists (select 1 from historico where campo = 'excluido' and de like 'ANA 1 (CNPJ 10000000000001)%'), 'exclusão definitiva fica registrada');
 select teste.verifica((select count(*) >= 8 from historico where processo_id is null), 'exclusão não apaga o histórico');
 
+-- ===== Bloqueio de acesso e proteção do último administrador
+select teste.espera_erro($$update perfis set bloqueado = true where email = 'admin@teste'$$, 'ao menos um administrador ativo', 'não bloqueia o último admin');
+select teste.espera_erro($$update perfis set papel = 'usuario' where email = 'admin@teste'$$, 'ao menos um administrador ativo', 'não rebaixa o último admin');
+update perfis set bloqueado = true where email = 'bruno@teste';
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', false);
+select teste.verifica((select count(*) = 0 from processos), 'usuário bloqueado não vê mais as empresas (mesmo com sessão aberta)');
+update processos set notificacao_elaboracao_em = now() where empresa = 'BRUNO';
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select teste.verifica((select notificacao_elaboracao_em is null from processos where empresa = 'BRUNO'), 'usuário bloqueado não altera empresas');
+update perfis set bloqueado = true where email = 'ana@teste';
+select teste.verifica((select bloqueado from perfis where email = 'ana@teste'), 'admin bloqueia usuária');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+update perfis set bloqueado = false where email = 'ana@teste';
+reset role;
+select teste.verifica((select bloqueado from perfis where email = 'ana@teste'), 'usuária bloqueada não se desbloqueia');
+update perfis set bloqueado = false, papel = 'admin' where email = 'ana@teste';
+update perfis set bloqueado = true where email = 'admin@teste';
+select teste.verifica((select bloqueado from perfis where email = 'admin@teste'), 'com outro admin ativo, um admin pode ser bloqueado');
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select teste.verifica((select count(*) = 0 from processos), 'admin bloqueado perde o acesso de administrador');
+reset role;
+update perfis set bloqueado = false where email in ('admin@teste', 'bruno@teste');
+update perfis set papel = 'usuario' where email = 'ana@teste';
+
 -- ===== Visitante sem login
 set role anon;
 select teste.espera_erro($$select * from processos$$, 'permission denied', 'visitante sem login não acessa nada');

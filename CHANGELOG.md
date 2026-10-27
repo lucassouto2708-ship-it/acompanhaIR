@@ -7,6 +7,15 @@ Versões marcadas com **Banco** exigiram rodar o `supabase/schema.sql` no Supaba
 Para marcar uma versão no GitHub (opcional, não altera o site): **Releases → Draft a new release →
 Choose a tag** (ex.: `v1.17`) → em **Target**, escolher o commit da versão → **Publish release**.
 
+## v1.22 — 27/10/2026
+
+- Aba Usuários: o administrador cadastra pessoas pelo site (nome, e-mail, senha gerada e papel) e recebe os dados prontos para copiar e enviar
+- Editar nome e papel, gerar nova senha e bloquear/desbloquear acesso de cada usuário
+- Bloqueio vale na hora, até para quem já está logado; usuário bloqueado não aparece mais para receber empresas
+- Banco impede bloquear ou rebaixar o último administrador ativo
+- **Banco:** rodar o `supabase/schema.sql` de novo
+- **Supabase:** publicar a Edge Function `usuarios` (passo 2b do README)
+
 ## v1.21 — 26/10/2026
 
 - Indicador "Pagas" (só admin): valor recuperado em destaque, em verde, e a quantidade de guias pagas embaixo

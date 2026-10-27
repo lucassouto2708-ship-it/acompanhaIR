@@ -159,7 +159,9 @@
     entrar.disabled = false;
     if (!error) mostrarSenha(false);
     if (error) {
-      erro.textContent = 'E-mail ou senha inválidos.';
+      erro.textContent = /banned/i.test(error.message)
+        ? 'Seu acesso está bloqueado. Fale com o administrador.'
+        : 'E-mail ou senha inválidos.';
       erro.hidden = false;
     }
   });
@@ -377,9 +379,15 @@
     }
   }
 
+  // Opções de responsável: usuário bloqueado não recebe empresas, mas continua aparecendo onde já é o
+  // responsável (marcado), para ficar visível o que precisa ser redistribuído.
+  const opcoesResponsavel = (selecionado) => estado.perfis
+    .filter((u) => !u.bloqueado || u.id === selecionado)
+    .map((u) => `<option value="${u.id}" ${u.id === selecionado ? 'selected' : ''}>${esc(u.nome || u.email)}${u.bloqueado ? ' (bloqueado)' : ''}</option>`)
+    .join('');
+
   function preencherSelectResponsavel(sel, comVazio) {
-    sel.innerHTML = (comVazio ? '<option value="">— sem responsável —</option>' : '') +
-      estado.perfis.map((p) => `<option value="${p.id}">${esc(p.nome || p.email)}</option>`).join('');
+    sel.innerHTML = (comVazio ? '<option value="">— sem responsável —</option>' : '') + opcoesResponsavel(null);
   }
 
   for (const id of ['#f-busca', '#f-lote', '#f-status', '#f-responsavel']) {
@@ -522,8 +530,7 @@
   function seletorResponsavelGrupo(chave, itens) {
     const ids = new Set(itens.map((p) => p.responsavel_id || ''));
     const unico = ids.size === 1 ? [...ids][0] : null;
-    const opcoes = estado.perfis.map((u) =>
-      `<option value="${u.id}" ${u.id === unico ? 'selected' : ''}>${esc(u.nome || u.email)}</option>`).join('');
+    const opcoes = opcoesResponsavel(unico);
     return `<select class="grupo-resp" data-acao="responsavel-grupo" data-lote="${esc(chave)}" title="Responsável por todas as empresas deste município/ano">
         ${unico === null ? `<option value="__varios" selected disabled>Vários (${ids.size})</option>` : ''}
         <option value="" ${unico === '' ? 'selected' : ''}>Nenhum</option>
@@ -698,7 +705,7 @@
       <td class="num nowrap valor">${moeda(p.calculo)}</td>
       ${admin ? `<td><select data-acao="responsavel" data-id="${p.id}">
         <option value="">—</option>
-        ${estado.perfis.map((u) => `<option value="${u.id}" ${u.id === p.responsavel_id ? 'selected' : ''}>${esc(u.nome || u.email)}</option>`).join('')}
+        ${opcoesResponsavel(p.responsavel_id)}
         </select></td>` : ''}
       ${caixa(p, 'notificacao_elaboracao_em', pode.notificacao_elaboracao_em)}
       ${caixa(p, 'entrega_municipio_em', pode.entrega_municipio_em)}
@@ -1158,23 +1165,161 @@
         if (s.chave === 'pago') pagos++;
         if (s.chave === 'auto') autos++;
       }
-      return `<tr>
-        <td>${esc(u.nome)}</td><td>${esc(u.email)}</td>
-        <td><span class="etiqueta ${u.papel === 'admin' ? 'info' : ''}">${u.papel === 'admin' ? 'Administrador' : 'Usuário'}</span></td>
+      const eu = u.id === estado.perfil.id;
+      return `<tr class="${u.bloqueado ? 'encerrado' : ''}">
+        <td>${esc(u.nome)}${eu ? ' <small>(você)</small>' : ''}</td><td>${esc(u.email)}</td>
+        <td><span class="etiqueta ${u.papel === 'admin' ? 'info' : ''}">${u.papel === 'admin' ? 'Administrador' : 'Usuário'}</span>
+          ${u.bloqueado ? '<span class="etiqueta erro">Bloqueado</span>' : ''}</td>
         <td class="num">${seus.length}</td><td class="num">${moeda(valor)}</td>
         <td class="num">${andamento}</td><td class="num">${parados}</td><td class="num">${atrasadas}</td>
         <td class="num">${pagos}</td><td class="num">${autos}</td>
-        <td><button class="link" data-ver="${u.id}">ver empresas</button></td>
+        <td class="acoes-usuario">
+          <button class="link" data-ver="${u.id}">empresas</button>
+          <button class="link" data-editar="${u.id}">editar</button>
+          <button class="link" data-senha="${u.id}">nova senha</button>
+          ${eu ? '' : `<button class="link ${u.bloqueado ? '' : 'perigo-link'}" data-bloquear="${u.id}">${u.bloqueado ? 'desbloquear' : 'bloquear'}</button>`}
+        </td>
       </tr>`;
     }).join('');
   }
 
-  $('#tabela-usuarios').addEventListener('click', (e) => {
-    const id = e.target.dataset.ver;
-    if (!id) return;
-    $('#f-responsavel').value = id;
-    trocarAba('acompanhamento');
-    renderizar();
+  $('#tabela-usuarios').addEventListener('click', async (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.ver) {
+      $('#f-responsavel').value = b.dataset.ver;
+      trocarAba('acompanhamento');
+      renderizar();
+    } else if (b.dataset.editar) {
+      abrirUsuario(estado.perfis.find((u) => u.id === b.dataset.editar));
+    } else if (b.dataset.senha) {
+      novaSenha(estado.perfis.find((u) => u.id === b.dataset.senha));
+    } else if (b.dataset.bloquear) {
+      alternarBloqueio(estado.perfis.find((u) => u.id === b.dataset.bloquear));
+    }
+  });
+
+  // ------------------------------------------------------------------ gestão de usuários (admin)
+
+  // Criar usuário, trocar senha e bloquear exigem a chave secreta do Supabase, que não pode ir para o
+  // site: essas ações passam pela Edge Function "usuarios" (supabase/functions/usuarios), que confere
+  // no servidor se quem pede é administrador. Nome e papel são alterados direto (regras do banco).
+  async function funcaoUsuarios(corpo) {
+    const { data, error } = await sb.functions.invoke('usuarios', { body: corpo });
+    if (!error) return { ok: true, data };
+    let msg = error.message || 'Erro ao falar com o servidor.';
+    const r = error.context;
+    if (r && typeof r.json === 'function') {
+      if (r.status === 404) msg = 'A função "usuarios" ainda não foi publicada no Supabase (veja o README, seção Gestão de usuários).';
+      else {
+        try { const j = await r.clone().json(); if (j && j.erro) msg = j.erro; } catch (e2) { /* mantém a mensagem */ }
+      }
+    } else if (/Failed to send/i.test(msg)) {
+      msg = 'Não foi possível falar com a função "usuarios" no Supabase. Ela já foi publicada? (README → Gestão de usuários)';
+    }
+    return { ok: false, msg };
+  }
+
+  // Senha provisória forte, sem caracteres que confundem (0/O, 1/l/I).
+  function gerarSenha() {
+    const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const n = new Uint32Array(12);
+    crypto.getRandomValues(n);
+    return Array.from(n, (x) => letras[x % letras.length]).join('');
+  }
+
+  const dlgUsuario = $('#dlg-usuario');
+  let usuarioEditando = null;
+
+  function abrirUsuario(u = null) {
+    usuarioEditando = u;
+    const novo = !u;
+    $('#usr-titulo').textContent = novo ? 'Novo usuário' : 'Editar usuário';
+    $('#usr-nome').value = u ? (u.nome || '') : '';
+    $('#usr-email').value = u ? u.email : '';
+    $('#usr-email').disabled = !novo; // o e-mail de login não muda por aqui
+    $('#usr-bloco-senha').hidden = !novo;
+    $('#usr-senha').value = novo ? gerarSenha() : '';
+    $('#usr-papel').value = u ? u.papel : 'usuario';
+    $('#usr-papel').disabled = !novo && u.id === estado.perfil.id; // não rebaixa a si mesmo
+    $('#usr-salvar').textContent = novo ? 'Cadastrar' : 'Salvar';
+    $('#usr-salvar').disabled = false;
+    dlgUsuario.showModal();
+    $('#usr-nome').focus();
+  }
+
+  $('#btn-novo-usuario').addEventListener('click', () => abrirUsuario());
+  $('#usr-gerar').addEventListener('click', () => { $('#usr-senha').value = gerarSenha(); });
+
+  $('#form-usuario').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nome = $('#usr-nome').value.trim().replace(/\s+/g, ' ');
+    const papel = $('#usr-papel').value;
+    if (!nome) return avisar('Informe o nome.');
+    $('#usr-salvar').disabled = true;
+    if (!usuarioEditando) {
+      const email = $('#usr-email').value.trim().toLowerCase();
+      const senha = $('#usr-senha').value;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('#usr-salvar').disabled = false; return avisar('E-mail inválido.'); }
+      if (senha.length < 8) { $('#usr-salvar').disabled = false; return avisar('A senha precisa ter pelo menos 8 caracteres.'); }
+      const r = await funcaoUsuarios({ acao: 'criar', nome, email, senha, papel });
+      $('#usr-salvar').disabled = false;
+      if (!r.ok) return avisar(r.msg);
+      dlgUsuario.close();
+      mostrarCredenciais('Acesso criado', nome, email, senha);
+    } else {
+      const { error } = await sb.from('perfis').update({ nome, papel }).eq('id', usuarioEditando.id);
+      $('#usr-salvar').disabled = false;
+      if (error) return avisar(error.message);
+      dlgUsuario.close();
+      avisar('Usuário atualizado.', 'ok');
+    }
+    await carregar();
+    renderizarUsuarios();
+  });
+
+  async function novaSenha(u) {
+    const senha = gerarSenha();
+    const ok = await confirmar({ titulo: 'Nova senha', botao: 'Gerar nova senha',
+      mensagem: `Gerar uma nova senha para ${u.nome || u.email}? A senha atual deixa de funcionar.` });
+    if (!ok) return;
+    const r = await funcaoUsuarios({ acao: 'redefinir_senha', id: u.id, senha });
+    if (!r.ok) return avisar(r.msg);
+    mostrarCredenciais('Senha redefinida', u.nome || u.email, u.email, senha);
+  }
+
+  async function alternarBloqueio(u) {
+    const bloquear = !u.bloqueado;
+    const qtd = ativos().filter((p) => p.responsavel_id === u.id).length;
+    const ok = await confirmar({
+      titulo: bloquear ? 'Bloquear acesso' : 'Desbloquear acesso', botao: bloquear ? 'Bloquear' : 'Desbloquear', perigo: bloquear,
+      mensagem: bloquear
+        ? `Bloquear o acesso de ${u.nome || u.email}? A pessoa não entra mais no sistema; o histórico do que ela fez é mantido.` +
+          (qtd ? `\n\nEla é responsável por ${qtd} empresa(s): lembre-se de atribuí-las a outra pessoa.` : '')
+        : `Liberar de novo o acesso de ${u.nome || u.email}?`,
+    });
+    if (!ok) return;
+    const r = await funcaoUsuarios({ acao: bloquear ? 'bloquear' : 'desbloquear', id: u.id });
+    if (!r.ok) return avisar(r.msg);
+    avisar(bloquear ? 'Acesso bloqueado.' : 'Acesso liberado.', 'ok');
+    await carregar();
+    renderizarUsuarios();
+  }
+
+  function mostrarCredenciais(titulo, nome, email, senha) {
+    const endereco = location.origin + location.pathname.replace(/index\.html$/, '');
+    $('#cred-titulo').textContent = titulo;
+    $('#cred-texto').textContent = `Acesso ao AcompanhaIR — ${nome}\nEndereço: ${endereco}\nE-mail: ${email}\nSenha: ${senha}`;
+    $('#cred-copiar').textContent = 'Copiar';
+    $('#dlg-credenciais').showModal();
+  }
+  $('#cred-copiar').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText($('#cred-texto').textContent);
+      $('#cred-copiar').textContent = 'Copiado';
+    } catch (e) {
+      avisar('Não foi possível copiar automaticamente: selecione o texto e copie.');
+    }
   });
 
   // ------------------------------------------------------------------ backup completo (admin)

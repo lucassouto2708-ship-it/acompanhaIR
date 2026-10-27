@@ -8,13 +8,16 @@
 (function () {
   const db = (window.__DB = {
     perfis: [
-      { id: 'a', email: 'admin@x.com', nome: 'Admin', papel: 'admin' },
-      { id: 'b', email: 'ana@x.com', nome: 'Ana', papel: 'usuario' },
+      { id: 'a', email: 'admin@x.com', nome: 'Admin', papel: 'admin', bloqueado: false },
+      { id: 'b', email: 'ana@x.com', nome: 'Ana', papel: 'usuario', bloqueado: false },
     ],
     processos: [],
     historico: [],
   });
   window.__CONTAGEM = { consultas: 0, updates: 0 };
+  window.__SENHAS = {};            // senhas definidas pela função "usuarios"
+  window.__FUNCAO_AUSENTE = false; // true simula a função não publicada no Supabase
+  const ultimoAdminAtivo = (id) => !db.perfis.some((x) => x.id !== id && x.papel === 'admin' && !x.bloqueado);
   let seq = 100000;
   let sessao = null;
   const ouvintes = [];
@@ -61,6 +64,14 @@
             }
           }
         }
+        if (this.t === 'perfis') { // imita o gatilho proteger_ultimo_admin
+          for (const r of alvo) {
+            const perde = this.patch.bloqueado === true || (this.patch.papel && this.patch.papel !== 'admin');
+            if (r.papel === 'admin' && !r.bloqueado && perde && ultimoAdminAtivo(r.id)) {
+              return { data: null, error: { message: 'É preciso haver ao menos um administrador ativo.' } };
+            }
+          }
+        }
         alvo.forEach((r) => Object.assign(r, this.patch, { atualizado_em: new Date().toISOString() }));
         data = alvo.map((r) => ({ ...r }));
       }
@@ -88,11 +99,40 @@
         return canal;
       },
       removeChannel: () => { window.__RT_CB = null; },
+      // Edge Function "usuarios" simulada (mesmas regras de supabase/functions/usuarios/index.ts).
+      functions: {
+        async invoke(nome, { body }) {
+          const falha = (status, erro) => ({ data: null, error: { message: 'Edge Function returned a non-2xx status code',
+            context: new Response(JSON.stringify({ erro }), { status, headers: { 'content-type': 'application/json' } }) } });
+          if (window.__FUNCAO_AUSENTE || nome !== 'usuarios') return falha(404, 'Requested function was not found');
+          const u = usuarioAtual();
+          if (!u || u.papel !== 'admin' || u.bloqueado) return falha(403, 'Apenas administradores podem gerenciar usuários.');
+          if (body.acao === 'criar') {
+            if (db.perfis.some((p) => p.email === body.email)) return falha(400, 'Já existe um usuário com este e-mail.');
+            const id = 'u' + seq++;
+            db.perfis.push({ id, email: body.email, nome: body.nome, papel: body.papel === 'admin' ? 'admin' : 'usuario', bloqueado: false });
+            window.__SENHAS[body.email] = body.senha;
+            return { data: { ok: true, id }, error: null };
+          }
+          const alvo = db.perfis.find((p) => p.id === body.id);
+          if (!alvo) return falha(404, 'Usuário não encontrado.');
+          if (body.acao === 'redefinir_senha') { window.__SENHAS[alvo.email] = body.senha; return { data: { ok: true }, error: null }; }
+          if (body.acao === 'bloquear' || body.acao === 'desbloquear') {
+            const bloquear = body.acao === 'bloquear';
+            if (bloquear && alvo.id === u.id) return falha(400, 'Você não pode bloquear o próprio acesso.');
+            if (bloquear && alvo.papel === 'admin' && ultimoAdminAtivo(alvo.id)) return falha(400, 'É preciso haver ao menos um administrador ativo.');
+            alvo.bloqueado = bloquear;
+            return { data: { ok: true }, error: null };
+          }
+          return falha(400, 'Ação desconhecida.');
+        },
+      },
       auth: {
         onAuthStateChange(cb) { ouvintes.push(cb); setTimeout(() => cb(sessao ? 'SIGNED_IN' : 'INITIAL_SESSION', sessao)); },
         async signInWithPassword({ email }) {
           const p = db.perfis.find((x) => x.email === email);
           if (!p) return { error: { message: 'Invalid login credentials' } };
+          if (p.bloqueado) return { error: { message: 'User is banned' } };
           sessao = { user: { id: p.id } };
           ouvintes.forEach((cb) => cb('SIGNED_IN', sessao));
           return { error: null };

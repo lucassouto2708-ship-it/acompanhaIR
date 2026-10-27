@@ -16,6 +16,33 @@ create table if not exists public.perfis (
   criado_em  timestamptz not null default now()
 );
 
+-- Acesso bloqueado (pessoa que saiu da equipe). Mantido pela função "usuarios" (Edge Function),
+-- que também bloqueia o login no Auth. Seguro rodar de novo.
+alter table public.perfis add column if not exists bloqueado boolean not null default false;
+
+-- Nunca ficar sem administrador: impede rebaixar ou bloquear o último admin ativo.
+create or replace function public.proteger_ultimo_admin()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.papel = 'admin' and not old.bloqueado
+     and (new.papel <> 'admin' or new.bloqueado)
+     and not exists (select 1 from public.perfis
+                     where id <> old.id and papel = 'admin' and not bloqueado) then
+    raise exception 'É preciso haver ao menos um administrador ativo.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists proteger_ultimo_admin on public.perfis;
+create trigger proteger_ultimo_admin
+  before update on public.perfis
+  for each row execute function public.proteger_ultimo_admin();
+
 -- Cria o perfil automaticamente quando um usuário é cadastrado no Auth.
 create or replace function public.criar_perfil()
 returns trigger
@@ -48,7 +75,18 @@ stable
 security definer
 set search_path = public
 as $$
-  select exists (select 1 from public.perfis where id = auth.uid() and papel = 'admin');
+  select exists (select 1 from public.perfis where id = auth.uid() and papel = 'admin' and not bloqueado);
+$$;
+
+-- Usuário logado e não bloqueado (o bloqueio vale na hora, mesmo com sessão já aberta).
+create or replace function public.usuario_ativo()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.perfis where id = auth.uid() and not bloqueado);
 $$;
 
 -- ---------------------------------------------------------------------
@@ -293,7 +331,7 @@ create policy perfis_update_admin on public.perfis
 drop policy if exists processos_select on public.processos;
 create policy processos_select on public.processos
   for select to authenticated
-  using (public.is_admin() or (responsavel_id = auth.uid() and arquivado_em is null));
+  using (public.is_admin() or (responsavel_id = auth.uid() and arquivado_em is null and public.usuario_ativo()));
 
 drop policy if exists processos_insert_admin on public.processos;
 create policy processos_insert_admin on public.processos
@@ -303,8 +341,8 @@ create policy processos_insert_admin on public.processos
 drop policy if exists processos_update on public.processos;
 create policy processos_update on public.processos
   for update to authenticated
-  using (public.is_admin() or (responsavel_id = auth.uid() and arquivado_em is null))
-  with check (public.is_admin() or responsavel_id = auth.uid());
+  using (public.is_admin() or (responsavel_id = auth.uid() and arquivado_em is null and public.usuario_ativo()))
+  with check (public.is_admin() or (responsavel_id = auth.uid() and public.usuario_ativo()));
 
 drop policy if exists processos_delete_admin on public.processos;
 create policy processos_delete_admin on public.processos

@@ -43,6 +43,7 @@ burlá-las pelo navegador.
 | Marcar etapas / registrar resposta | sim | sim (nas dele) |
 | Importar PDF, atribuir responsável, excluir | sim | não |
 | Ver outros usuários e o histórico de alterações | sim | não |
+| Cadastrar, editar, trocar senha e bloquear usuários | sim | não |
 
 ## Como colocar no ar
 
@@ -55,21 +56,37 @@ burlá-las pelo navegador.
 3. Em **Authentication → Sign In / Providers → Email**, **desative "Allow new users to sign up"**.
    Assim só entra quem você cadastrar.
 
-### 2. Criar os usuários
+### 2. Criar o primeiro administrador
 
-1. Em **Authentication → Users → Add user → Create new user**, informe e-mail e senha e marque
-   **Auto Confirm User**. Faça isso para você e para cada pessoa da equipe.
+1. Em **Authentication → Users → Add user → Create new user**, informe o seu e-mail e senha e marque
+   **Auto Confirm User**.
 2. Torne a sua conta administradora. No **SQL Editor**, rode:
 
    ```sql
    update public.perfis set papel = 'admin' where email = 'seu-email@exemplo.com';
    ```
 
-3. (Opcional) Ajuste os nomes exibidos:
+3. As demais pessoas o administrador cadastra pelo próprio site (aba **Usuários**), depois de
+   publicar a função do passo abaixo.
 
-   ```sql
-   update public.perfis set nome = 'Fulano' where email = 'fulano@exemplo.com';
-   ```
+### 2b. Publicar a função "usuarios" (cadastro de pessoas pelo site)
+
+Criar usuário, trocar senha e bloquear acesso exigem a chave secreta do Supabase, que nunca vai
+para o site. Por isso essas ações passam por uma Edge Function que roda no servidor do Supabase e
+só atende administradores ativos. Publique uma vez (e de novo quando o arquivo mudar):
+
+1. No Supabase, menu **Edge Functions → Deploy a new function → Via Editor**.
+2. Nome da função: **`usuarios`** (exatamente assim).
+3. Apague o código de exemplo e cole todo o conteúdo de `supabase/functions/usuarios/index.ts`.
+4. Clique em **Deploy function**.
+5. Na função publicada, aba **Details** (ou Settings), **desligue "Verify JWT with legacy secret"**
+   / "Enforce JWT verification" e salve. A própria função confere quem está chamando.
+
+Na aba **Usuários** o administrador então pode: **cadastrar** (nome, e-mail, senha gerada e papel —
+o site mostra os dados para copiar e enviar à pessoa), **editar** nome e papel, gerar **nova senha** e
+**bloquear/desbloquear** o acesso. O bloqueio vale na hora, inclusive para quem já está logado; as
+empresas da pessoa continuam atribuídas a ela até você trocar o responsável. O banco não deixa
+bloquear ou rebaixar o último administrador ativo.
 
 ### 3. Configurar o site
 
@@ -142,6 +159,7 @@ js/app.js             lógica da interface
 js/fluxo.js           regras das etapas e situação do processo
 js/pdf-parser.js      leitura do relatório geral em PDF (pdf.js)
 supabase/schema.sql   tabelas, validação das etapas, histórico e regras de acesso (RLS)
+supabase/functions/   Edge Function "usuarios" (cadastro, senha e bloqueio pelo admin) — ver passo 2b
 vendor/               bibliotecas (supabase-js, pdf.js) servidas pelo próprio site — ver vendor/README.md
 ```
 
