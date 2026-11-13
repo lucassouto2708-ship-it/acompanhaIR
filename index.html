@@ -77,15 +77,15 @@
           <div class="senha-campo">
             <input id="login-senha" type="password" name="senha" autocomplete="current-password" required>
             <button type="button" id="btn-ver-senha" class="icone" title="Mostrar senha" aria-label="Mostrar senha" aria-pressed="false">
-              <svg class="ic olho-aberto"><use href="#i-olho"/></svg>
-              <svg class="ic olho-fechado"><use href="#i-olho-fechado"/></svg>
+              <svg aria-hidden="true" class="ic olho-aberto"><use href="#i-olho"/></svg>
+              <svg aria-hidden="true" class="ic olho-fechado"><use href="#i-olho-fechado"/></svg>
             </button>
           </div>
         </div>
         <button type="submit" class="primario bloco">Entrar</button>
-        <p id="login-erro" class="erro" hidden></p>
+        <p id="login-erro" class="erro" role="alert" hidden></p>
       </div>
-      <p class="acesso-rodape"><svg class="ic"><use href="#i-cadeado"/></svg>
+      <p class="acesso-rodape"><svg aria-hidden="true" class="ic"><use href="#i-cadeado"/></svg>
         Acesso restrito a usuários cadastrados pelo administrador.</p>
     </form>
   </section>
@@ -101,18 +101,18 @@
         <div class="topo-direita">
           <span class="versao" id="versao"></span>
           <button id="btn-tema" class="icone" type="button" title="Alternar tema claro/escuro">
-            <svg class="ic tema-claro"><use href="#i-lua"/></svg>
-            <svg class="ic tema-escuro"><use href="#i-sol"/></svg>
+            <svg aria-hidden="true" class="ic tema-claro"><use href="#i-lua"/></svg>
+            <svg aria-hidden="true" class="ic tema-escuro"><use href="#i-sol"/></svg>
           </button>
           <span class="usuario"><span id="usuario-nome"></span> <span id="usuario-papel" class="etiqueta"></span></span>
-          <button id="btn-sair" class="secundario compacto" type="button"><svg class="ic"><use href="#i-sair"/></svg>Sair</button>
+          <button id="btn-sair" class="secundario compacto" type="button"><svg aria-hidden="true" class="ic"><use href="#i-sair"/></svg>Sair</button>
         </div>
       </div>
       <nav id="abas" class="abas">
         <div class="topo-interno">
-          <button data-aba="acompanhamento" class="ativa"><svg class="ic"><use href="#i-lista"/></svg>Acompanhamento</button>
-          <button data-aba="usuarios" class="so-admin"><svg class="ic"><use href="#i-usuarios"/></svg>Usuários</button>
-          <button data-aba="importar" class="so-admin"><svg class="ic"><use href="#i-upload"/></svg>Importar PDF</button>
+          <button data-aba="acompanhamento" class="ativa"><svg aria-hidden="true" class="ic"><use href="#i-lista"/></svg>Acompanhamento</button>
+          <button data-aba="usuarios" class="so-admin"><svg aria-hidden="true" class="ic"><use href="#i-usuarios"/></svg>Usuários</button>
+          <button data-aba="importar" class="so-admin"><svg aria-hidden="true" class="ic"><use href="#i-upload"/></svg>Importar PDF</button>
         </div>
       </nav>
     </header>
@@ -133,7 +133,7 @@
         <div class="painel">
           <div class="barra-ferramentas">
             <label class="busca">
-              <svg class="ic"><use href="#i-busca"/></svg>
+              <svg aria-hidden="true" class="ic"><use href="#i-busca"/></svg>
               <input id="f-busca" type="search" placeholder="Buscar por empresa ou CNPJ">
             </label>
             <select id="f-lote"><option value="">Todos os municípios</option></select>
@@ -154,7 +154,7 @@
                 <button id="btn-expandir" class="secundario" type="button" title="Abrir todos os municípios">Expandir</button>
                 <button id="btn-recolher" class="secundario" type="button" title="Fechar todos os municípios">Recolher</button>
               </span>
-              <button id="btn-csv" class="secundario" type="button"><svg class="ic"><use href="#i-download"/></svg>Exportar CSV</button>
+              <button id="btn-csv" class="secundario" type="button"><svg aria-hidden="true" class="ic"><use href="#i-download"/></svg>Exportar CSV</button>
             </span>
           </div>
 
@@ -166,7 +166,7 @@
             <select id="sel-responsavel" class="so-admin"></select>
             <button id="btn-atribuir" class="secundario compacto so-admin" type="button">Atribuir</button>
             <span class="espaco"></span>
-            <button id="btn-arquivar" class="secundario compacto so-admin" type="button" title="Tira da lista sem apagar; pode ser restaurado"><svg class="ic"><use href="#i-arquivo"/></svg><span id="btn-arquivar-texto">Arquivar</span></button>
+            <button id="btn-arquivar" class="secundario compacto so-admin" type="button" title="Tira da lista sem apagar; pode ser restaurado"><svg aria-hidden="true" class="ic"><use href="#i-arquivo"/></svg><span id="btn-arquivar-texto">Arquivar</span></button>
           </div>
 
           <div class="tabela-rolagem">
@@ -174,9 +174,9 @@
               <thead>
                 <tr>
                   <th class="col-sel"><input type="checkbox" id="sel-todos" title="Selecionar todos"></th>
-                  <th class="col-empresa"><button class="ordenar" data-ordem="empresa">Empresa<svg class="ic"><use href="#i-ordenar"/></svg></button>
-                    <span class="sep-ordem">/</span><button class="ordenar" data-ordem="cnpj">CNPJ<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
-                  <th class="num"><button class="ordenar" data-ordem="calculo">Cálculo<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
+                  <th class="col-empresa"><button class="ordenar" data-ordem="empresa">Empresa<svg aria-hidden="true" class="ic"><use href="#i-ordenar"/></svg></button>
+                    <span class="sep-ordem">/</span><button class="ordenar" data-ordem="cnpj">CNPJ<svg aria-hidden="true" class="ic"><use href="#i-ordenar"/></svg></button></th>
+                  <th class="num"><button class="ordenar" data-ordem="calculo">Cálculo<svg aria-hidden="true" class="ic"><use href="#i-ordenar"/></svg></button></th>
                   <th class="so-admin">Responsável</th>
                   <th class="etapa">Notificação<br>elaboração</th>
                   <th class="etapa">Entrega<br>município</th>
@@ -185,13 +185,13 @@
                   <th class="etapa">Impug&shy;nação</th>
                   <th class="etapa">Resposta<br>impugnação</th>
                   <th class="etapa">Auto de<br>infração</th>
-                  <th><button class="ordenar" data-ordem="situacao">Situação<svg class="ic"><use href="#i-ordenar"/></svg></button></th>
+                  <th><button class="ordenar" data-ordem="situacao">Situação<svg aria-hidden="true" class="ic"><use href="#i-ordenar"/></svg></button></th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
             <div id="vazio" class="estado-vazio" hidden>
-              <svg class="ic"><use href="#i-vazio"/></svg>
+              <svg aria-hidden="true" class="ic"><use href="#i-vazio"/></svg>
               <strong id="vazio-titulo">Nenhuma empresa encontrada</strong>
               <span id="vazio-texto"></span>
             </div>
@@ -208,10 +208,10 @@
             <p>Andamento por responsável e gestão de acesso: cadastre pessoas, troque senhas e bloqueie
               o acesso de quem saiu da equipe (o histórico do que a pessoa fez é mantido).</p>
           </div>
-          <button id="btn-novo-usuario" class="primario" type="button"><svg class="ic"><use href="#i-usuarios"/></svg>Novo usuário</button>
+          <button id="btn-novo-usuario" class="primario" type="button"><svg aria-hidden="true" class="ic"><use href="#i-usuarios"/></svg>Novo usuário</button>
           <div class="backup">
             <button id="btn-backup" class="secundario" type="button" title="Baixa uma cópia completa: empresas (inclusive arquivadas), histórico e usuários">
-              <svg class="ic"><use href="#i-download"/></svg>Backup completo</button>
+              <svg aria-hidden="true" class="ic"><use href="#i-download"/></svg>Backup completo</button>
             <small id="backup-info"></small>
           </div>
         </div>
@@ -246,7 +246,7 @@
           <div class="painel-titulo"><span class="etapa-num">1</span>Arquivo</div>
           <label id="dropzone" class="dropzone">
             <input id="arquivo-pdf" type="file" accept="application/pdf">
-            <svg class="ic"><use href="#i-documento"/></svg>
+            <svg aria-hidden="true" class="ic"><use href="#i-documento"/></svg>
             <span id="dropzone-texto"><strong>Arraste o relatório em PDF aqui</strong> ou
               <span class="link-falso">selecione o arquivo</span></span>
             <small>Formato aceito: PDF gerado por sistema (texto selecionável)</small>
@@ -293,7 +293,7 @@
     <form method="dialog" id="form-resposta" novalidate>
       <div class="dlg-topo">
         <h2>Resposta da impugnação</h2>
-        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg aria-hidden="true" class="ic"><use href="#i-fechar"/></svg></button>
       </div>
       <div class="dlg-corpo">
         <p id="resp-empresa" class="dlg-ref"></p>
@@ -327,7 +327,7 @@
     <form method="dialog" id="form-data" novalidate>
       <div class="dlg-topo">
         <h2 id="data-titulo"></h2>
-        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg aria-hidden="true" class="ic"><use href="#i-fechar"/></svg></button>
       </div>
       <div class="dlg-corpo">
         <p id="data-empresa" class="dlg-ref"></p>
@@ -350,7 +350,7 @@
     <form method="dialog" id="form-confirmar" novalidate>
       <div class="dlg-topo">
         <h2 id="conf-titulo"></h2>
-        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg aria-hidden="true" class="ic"><use href="#i-fechar"/></svg></button>
       </div>
       <div class="dlg-corpo">
         <p id="conf-mensagem" class="conf-mensagem"></p>
@@ -372,7 +372,7 @@
     <form method="dialog" id="form-lote" novalidate>
       <div class="dlg-topo">
         <h2>Marcar etapa em lote</h2>
-        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg aria-hidden="true" class="ic"><use href="#i-fechar"/></svg></button>
       </div>
       <div class="dlg-corpo">
         <p id="lote-ref" class="dlg-ref"></p>
@@ -406,7 +406,7 @@
     <form method="dialog" id="form-usuario" novalidate>
       <div class="dlg-topo">
         <h2 id="usr-titulo">Novo usuário</h2>
-        <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+        <button type="button" class="icone" data-fechar title="Fechar"><svg aria-hidden="true" class="ic"><use href="#i-fechar"/></svg></button>
       </div>
       <div class="dlg-corpo">
         <label class="campo">Nome <input type="text" id="usr-nome" maxlength="120" autocomplete="off"></label>
@@ -438,7 +438,7 @@
   <dialog id="dlg-credenciais">
     <div class="dlg-topo">
       <h2 id="cred-titulo">Acesso criado</h2>
-      <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+      <button type="button" class="icone" data-fechar title="Fechar"><svg aria-hidden="true" class="ic"><use href="#i-fechar"/></svg></button>
     </div>
     <div class="dlg-corpo">
       <p>Envie estes dados à pessoa por um canal privado. A senha não fica visível depois que esta janela fechar.</p>
@@ -454,8 +454,8 @@
   <!-- Histórico (admin) -->
   <dialog id="dlg-historico">
     <div class="dlg-topo">
-      <h2><svg class="ic"><use href="#i-historico"/></svg>Histórico de alterações</h2>
-      <button type="button" class="icone" data-fechar title="Fechar"><svg class="ic"><use href="#i-fechar"/></svg></button>
+      <h2><svg aria-hidden="true" class="ic"><use href="#i-historico"/></svg>Histórico de alterações</h2>
+      <button type="button" class="icone" data-fechar title="Fechar"><svg aria-hidden="true" class="ic"><use href="#i-fechar"/></svg></button>
     </div>
     <div class="dlg-corpo">
       <p id="hist-empresa" class="dlg-ref"></p>
