@@ -7,6 +7,12 @@ Versões marcadas com **Banco** exigiram rodar o `supabase/schema.sql` no Supaba
 Para marcar uma versão no GitHub (opcional, não altera o site): **Releases → Draft a new release →
 Choose a tag** (ex.: `v1.17`) → em **Target**, escolher o commit da versão → **Publish release**.
 
+## v1.23 — 18/11/2026
+
+- Botão **Exportar** vira um menu: **PDF por município**, **CSV por município** e o CSV completo de antes
+- Exportação por município traz uma linha por município/ano (empresas, valores, etapas, pagas, impugnadas, autos, encerradas, paradas) e o total, **sem nome nem CNPJ das empresas**; respeita os filtros da tela
+- Biblioteca jsPDF incluída em `vendor/`, baixada só na hora de gerar o PDF
+
 ## v1.22 — 27/10/2026
 
 - Aba Usuários: o administrador cadastra pessoas pelo site (nome, e-mail, senha gerada e papel) e recebe os dados prontos para copiar e enviar

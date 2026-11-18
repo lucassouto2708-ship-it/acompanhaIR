@@ -1684,7 +1684,51 @@
     trocarAba('acompanhamento');
   });
 
-  // ------------------------------------------------------------------ exportação CSV
+  // ------------------------------------------------------------------ exportação
+
+  // Menu "Exportar": abre/fecha no botão, fecha com Esc ou clique fora.
+  const menuExportar = $('#menu-exportar');
+  function abrirMenuExportar(abrir) {
+    menuExportar.hidden = !abrir;
+    $('#btn-exportar').setAttribute('aria-expanded', String(abrir));
+    if (abrir) menuExportar.querySelector('button').focus();
+  }
+  $('#btn-exportar').addEventListener('click', () => abrirMenuExportar(menuExportar.hidden));
+  menuExportar.addEventListener('click', (e) => { if (e.target.closest('button')) abrirMenuExportar(false); });
+  document.addEventListener('click', (e) => {
+    if (!menuExportar.hidden && !e.target.closest('.menu-exportar')) abrirMenuExportar(false);
+  });
+  menuExportar.addEventListener('keydown', (e) => {
+    const itens = $$('button', menuExportar);
+    const i = itens.indexOf(document.activeElement);
+    if (e.key === 'Escape') { abrirMenuExportar(false); $('#btn-exportar').focus(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); itens[(i + 1) % itens.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); itens[(i - 1 + itens.length) % itens.length].focus(); }
+  });
+
+  const hojeArquivo = () => new Date().toISOString().slice(0, 10);
+
+  function baixar(blob, nome) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nome;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // Células que começam com = + - @ (ou tab/CR) seriam executadas como fórmula pelo Excel:
+  // o apóstrofo na frente faz o Excel tratá-las como texto.
+  function baixarCsv(cab, linhas, nome) {
+    const celula = (v) => {
+      let t = String(v ?? '');
+      if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`;
+      return `"${t.replace(/"/g, '""')}"`;
+    };
+    const csv = [cab, ...linhas]
+      .map((l) => l.map(celula).join(';'))
+      .join('\r\n');
+    baixar(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), nome);
+  }
 
   $('#btn-csv').addEventListener('click', () => {
     const agora = new Date();
@@ -1700,21 +1744,172 @@
       data(p.resposta_em), p.resposta_teor, data(p.auto_infracao_em),
       Fluxo.situacao(p, agora, DIAS_PARADO).texto,
     ]);
-    // Células que começam com = + - @ (ou tab/CR) seriam executadas como fórmula pelo Excel:
-    // o apóstrofo na frente faz o Excel tratá-las como texto.
-    const celula = (v) => {
-      let t = String(v ?? '');
-      if (/^[=+\-@\t\r]/.test(t)) t = `'${t}`;
-      return `"${t.replace(/"/g, '""')}"`;
+    baixarCsv(cab, linhas, `acompanhair_${hojeArquivo()}.csv`);
+  });
+
+  // Resumo por município/ano da visão filtrada: só contagens e valores, nenhum dado de empresa.
+  function resumoMunicipios() {
+    const agora = new Date();
+    const linhas = agrupar(filtrados()).map(([, itens]) => {
+      const r = {
+        municipio: itens[0].municipio, uf: itens[0].uf || '', ano: itens[0].ano,
+        empresas: itens.length, valor: 0, notificacao: 0, entrega: 0, remessa: 0,
+        pagas: 0, valorPago: 0, naoPagas: 0, impugnadas: 0, respostas: 0, autos: 0,
+        encerradas: 0, paradas: 0, naoIniciadas: 0,
+      };
+      for (const p of itens) {
+        const v = Number(p.calculo) || 0;
+        const s = Fluxo.situacao(p, agora, DIAS_PARADO);
+        r.valor += v;
+        if (p.notificacao_elaboracao_em) r.notificacao++;
+        if (p.entrega_municipio_em) r.entrega++;
+        if (p.remessa_guia_em) r.remessa++;
+        if (p.pagamento === 'pago') { r.pagas++; r.valorPago += v; }
+        if (p.pagamento === 'nao_pago') r.naoPagas++;
+        if (p.impugnacao_em) r.impugnadas++;
+        if (p.resposta_em) r.respostas++;
+        if (s.chave === 'auto') r.autos++;
+        if (s.encerrado) r.encerradas++;
+        if (!s.encerrado && s.parado) r.paradas++;
+        if (!s.encerrado && s.atrasada) r.naoIniciadas++;
+      }
+      return r;
+    });
+    const total = { municipio: 'TOTAL', uf: '', ano: '' };
+    for (const r of linhas) {
+      for (const [k, v] of Object.entries(r)) if (typeof v === 'number' && k !== 'ano') total[k] = (total[k] || 0) + v;
+    }
+    return { linhas, total };
+  }
+
+  // Filtros aplicados, para constar no cabeçalho do PDF.
+  function descricaoFiltros() {
+    const partes = [];
+    const busca = $('#f-busca').value.trim();
+    if (busca) partes.push(`busca "${busca}"`);
+    for (const id of ['#f-lote', '#f-status', '#f-responsavel']) {
+      const sel = $(id);
+      if (sel.value && !sel.closest('[hidden]')) partes.push(sel.options[sel.selectedIndex].text);
+    }
+    return partes.length ? partes.join(' · ') : 'nenhum (todas as empresas)';
+  }
+
+  const numBr = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
+
+  $('#btn-csv-municipios').addEventListener('click', () => {
+    const { linhas, total } = resumoMunicipios();
+    if (!linhas.length) return avisar('Nenhuma empresa na visão atual para exportar.');
+    const cab = ['Município', 'UF', 'Ano', 'Empresas', 'Valor total', 'Notificação elaborada',
+      'Entregue ao município', 'Remessa c/ guia', 'Pagas', 'Valor pago', 'Não pagas', 'Impugnadas',
+      'Respostas de impugnação', 'Autos de infração', 'Encerradas', 'Paradas', 'Não iniciadas (atrasadas)'];
+    const linha = (r) => [r.municipio, r.uf, r.ano, r.empresas, numBr(r.valor), r.notificacao, r.entrega,
+      r.remessa, r.pagas, numBr(r.valorPago), r.naoPagas, r.impugnadas, r.respostas, r.autos,
+      r.encerradas, r.paradas, r.naoIniciadas];
+    baixarCsv(cab, [...linhas.map(linha), linha(total)], `acompanhair_municipios_${hojeArquivo()}.csv`);
+  });
+
+  // jsPDF (~360 KB) só é baixado na primeira exportação em PDF.
+  let jsPdfCarregando = null;
+  function carregarJsPdf() {
+    if (window.jspdf) return Promise.resolve(window.jspdf);
+    jsPdfCarregando = jsPdfCarregando || new Promise((ok, falha) => {
+      const sc = document.createElement('script');
+      sc.src = 'vendor/jspdf-2.5.1/jspdf.umd.min.js?v=' + (window.ACOMPANHAIR_VERSAO || '');
+      sc.onload = () => (window.jspdf ? ok(window.jspdf) : falha(new Error('biblioteca de PDF inválida')));
+      sc.onerror = () => { jsPdfCarregando = null; falha(new Error('não foi possível carregar a biblioteca de PDF')); };
+      document.head.appendChild(sc);
+    });
+    return jsPdfCarregando;
+  }
+
+  $('#btn-pdf-municipios').addEventListener('click', async () => {
+    const { linhas, total } = resumoMunicipios();
+    if (!linhas.length) return avisar('Nenhuma empresa na visão atual para exportar.');
+    let jspdf;
+    try { jspdf = await carregarJsPdf(); } catch (err) {
+      return avisar('Não foi possível gerar o PDF: ' + err.message + '. Verifique a conexão e tente de novo.');
+    }
+    const doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const L = doc.internal.pageSize.getWidth();
+    const A = doc.internal.pageSize.getHeight();
+    const M = 10;
+    const pct = (k, n) => (n ? `${k} (${Math.round((k / n) * 100)}%)` : '0');
+    // [título, largura (mm), alinhamento, valor]
+    const cols = [
+      ['Município/UF', 0, 'left', (r) => r.municipio + (r.uf ? '/' + r.uf : '')],
+      ['Ano', 10, 'center', (r) => String(r.ano)],
+      ['Empresas', 15, 'right', (r) => String(r.empresas)],
+      ['Valor total', 26, 'right', (r) => moeda(r.valor)],
+      ['Notificação', 19, 'right', (r) => pct(r.notificacao, r.empresas)],
+      ['Entrega', 19, 'right', (r) => pct(r.entrega, r.empresas)],
+      ['Remessa guia', 19, 'right', (r) => pct(r.remessa, r.empresas)],
+      ['Pagas', 12, 'right', (r) => String(r.pagas)],
+      ['Valor pago', 26, 'right', (r) => moeda(r.valorPago)],
+      ['Não pagas', 15, 'right', (r) => String(r.naoPagas)],
+      ['Impugnadas', 17, 'right', (r) => String(r.impugnadas)],
+      ['Autos', 11, 'right', (r) => String(r.autos)],
+      ['Encerradas', 17, 'right', (r) => String(r.encerradas)],
+      ['Paradas', 13, 'right', (r) => String(r.paradas)],
+    ];
+    cols[0][1] = L - 2 * M - cols.slice(1).reduce((s, c) => s + c[1], 0);
+    const xs = [];
+    cols.reduce((x, c) => { xs.push(x); return x + c[1]; }, M);
+    const ALT = 6.5;
+    const AZUL = [30, 78, 140];
+
+    const celulas = (r, negrito) => {
+      doc.setFont('helvetica', negrito ? 'bold' : 'normal');
+      cols.forEach(([, w, al, f], i) => {
+        let t = f(r);
+        while (t.length > 1 && doc.getTextWidth(t) > w - 3) t = t.slice(0, -2) + '…';
+        const x = al === 'left' ? xs[i] + 1.5 : al === 'center' ? xs[i] + w / 2 : xs[i] + w - 1.5;
+        doc.text(t, x, y + ALT / 2, { align: al, baseline: 'middle' });
+      });
     };
-    const csv = [cab, ...linhas]
-      .map((l) => l.map(celula).join(';'))
-      .join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `acompanhair_${agora.toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    let y;
+    const cabecalho = (primeira) => {
+      y = M;
+      if (primeira) {
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(31, 41, 55);
+        doc.text('AcompanhaIR — Resumo por município', M, y + 5);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
+        doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} · Filtros: ${descricaoFiltros()}`, M, y + 11);
+        doc.text(`${linhas.length} ${linhas.length === 1 ? 'município/ano' : 'municípios/anos'} · ` +
+          `${total.empresas} ${total.empresas === 1 ? 'empresa' : 'empresas'} · valor total ${moeda(total.valor)} · ` +
+          `pago ${moeda(total.valorPago)}`, M, y + 16);
+        y += 21;
+      }
+      doc.setFillColor(...AZUL); doc.rect(M, y, L - 2 * M, ALT + 1, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255);
+      cols.forEach(([t, w, al], i) => {
+        const x = al === 'left' ? xs[i] + 1.5 : al === 'center' ? xs[i] + w / 2 : xs[i] + w - 1.5;
+        doc.text(t, x, y + (ALT + 1) / 2, { align: al, baseline: 'middle' });
+      });
+      y += ALT + 1;
+      doc.setTextColor(31, 41, 55);
+    };
+
+    cabecalho(true);
+    linhas.forEach((r, i) => {
+      if (y + ALT > A - M - 6) { doc.addPage(); cabecalho(false); }
+      if (i % 2) { doc.setFillColor(245, 246, 248); doc.rect(M, y, L - 2 * M, ALT, 'F'); }
+      doc.setFontSize(8);
+      celulas(r, false);
+      y += ALT;
+    });
+    if (y + ALT + 1 > A - M - 6) { doc.addPage(); cabecalho(false); }
+    doc.setDrawColor(...AZUL); doc.setLineWidth(0.4); doc.line(M, y, L - M, y);
+    doc.setFontSize(8);
+    celulas(total, true);
+
+    const paginas = doc.getNumberOfPages();
+    for (let n = 1; n <= paginas; n++) {
+      doc.setPage(n);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(107, 114, 128);
+      doc.text(`Notificação, Entrega e Remessa guia: empresas que já passaram pela etapa (% do município). ` +
+        `Paradas: iniciadas e sem movimento há ${DIAS_PARADO}+ dias.`, M, A - M + 2);
+      doc.text(`Página ${n} de ${paginas}`, L - M, A - M + 2, { align: 'right' });
+    }
+    baixar(doc.output('blob'), `acompanhair_municipios_${hojeArquivo()}.pdf`);
   });
 })();

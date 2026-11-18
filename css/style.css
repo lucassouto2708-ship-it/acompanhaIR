@@ -509,6 +509,20 @@ dialog::backdrop { background: rgba(17, 24, 39, .45); }
 /* ---------------------------------------------------------------- agrupamento por município (admin) */
 .acoes-direita { display: inline-flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .grupo-acoes { display: inline-flex; gap: 8px; }
+.menu-exportar { position: relative; display: inline-flex; }
+.menu-opcoes {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 250px;
+  display: grid; padding: 4px; background: var(--superficie);
+  border: 1px solid var(--borda-forte); border-radius: var(--raio);
+  box-shadow: 0 6px 16px rgba(16, 24, 40, .12);
+}
+.menu-opcoes[hidden] { display: none; }
+.menu-opcoes button {
+  justify-content: flex-start; height: 32px; padding: 0 10px; background: transparent;
+  color: var(--texto); text-align: left; font-weight: 400;
+}
+.menu-opcoes button:hover, .menu-opcoes button:focus-visible { background: var(--superficie-2); }
+.menu-titulo { padding: 6px 10px 2px; font-size: 11px; font-weight: 600; color: var(--sutil); }
 .barra-ferramentas select { max-width: 215px; }
 /* Coluna Empresa com largura contida: nomes longos quebram (empresas) ou ganham reticências (municípios) */
 #tabela td.empresa, #tabela th.col-empresa { min-width: 220px; max-width: 244px; width: 244px; }

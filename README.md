@@ -132,8 +132,14 @@ dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb
    Busca por texto ou filtro de município abrem os grupos automaticamente. O admin filtra por usuário,
    município ou situação, vê o resumo na aba **Usuários** e clica no nome da empresa para ver o
    histórico de quem marcou o quê e quando.
-4. **Exportar CSV**: baixa a visão filtrada para abrir no Excel (células que começariam com `=`, `+`,
-   `-` ou `@` recebem um apóstrofo na frente, para o Excel não executá-las como fórmula).
+4. **Exportar** (menu no canto da lista; sempre exporta a visão filtrada):
+   - **PDF por município** e **CSV por município**: uma linha por município/ano, **sem nome nem CNPJ
+     de empresa**: quantidade de empresas, valor total, quantas passaram por cada etapa, pagas e valor
+     pago, não pagas, impugnadas, autos, encerradas e paradas, com uma linha de total. O PDF traz no
+     cabeçalho a data e os filtros aplicados.
+   - **CSV completo (com empresas)**: uma linha por empresa, para abrir no Excel (células que
+     começariam com `=`, `+`, `-` ou `@` recebem um apóstrofo na frente, para o Excel não executá-las
+     como fórmula).
 5. **Arquivar** (admin): no lugar de excluir, selecione as empresas e use **Arquivar**. Elas saem da
    lista e da visão dos usuários, mas o andamento e o histórico ficam guardados; para ver ou restaurar,
    use o filtro **Situação → Arquivadas**. Ações com mais de 20 empresas pedem que você digite a
@@ -160,10 +166,10 @@ js/fluxo.js           regras das etapas e situação do processo
 js/pdf-parser.js      leitura do relatório geral em PDF (pdf.js)
 supabase/schema.sql   tabelas, validação das etapas, histórico e regras de acesso (RLS)
 supabase/functions/   Edge Function "usuarios" (cadastro, senha e bloqueio pelo admin) — ver passo 2b
-vendor/               bibliotecas (supabase-js, pdf.js) servidas pelo próprio site — ver vendor/README.md
+vendor/               bibliotecas (supabase-js, pdf.js, jsPDF) servidas pelo próprio site — ver vendor/README.md
 ```
 
-Não há etapa de build: são arquivos estáticos. As bibliotecas (supabase-js e pdf.js) ficam na pasta
+Não há etapa de build: são arquivos estáticos. As bibliotecas (supabase-js, pdf.js e jsPDF) ficam na pasta
 `vendor/`, copiadas dos pacotes oficiais do npm: o site não executa código de servidores de terceiros.
 
 ## Publicando uma nova versão

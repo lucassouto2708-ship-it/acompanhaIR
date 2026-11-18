@@ -9,7 +9,7 @@ Supabase real nem dados reais: o banco do site é simulado e os PDFs são gerado
 | Pasta | O quê |
 |---|---|
 | `unit/` | leitura do PDF (formato atual e antigo, CNPJ cortado, nomes em duas linhas, TOTAL vertical) e regras do fluxo (etapas, paradas, limites de data) |
-| `e2e/` | o site no navegador: login e perfis, importação, etapas e datas, marcação em lote, municípios (inclusive teclado), mais de 1.000 empresas, arquivamento, CSV, backup, grafias de município, tempo real |
+| `e2e/` | o site no navegador: login e perfis, importação, etapas e datas, marcação em lote, municípios (inclusive teclado), mais de 1.000 empresas, arquivamento, CSV, exportação por município (PDF/CSV sem empresas), backup, grafias de município, tempo real |
 | `db/` | o `supabase/schema.sql` num Postgres de teste: regras de acesso, sequência, datas, teor, arquivamento e histórico |
 
 ## Como rodar

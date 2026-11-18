@@ -57,7 +57,7 @@ test('exportação CSV não deixa o Excel executar fórmulas', async ({ page }) 
   await abrirApp(page);
   await semear(page, [{ id: 1, municipio: 'MANTENA', empresa: '+CMD|calc', cnpj: '10000000000001', resposta_teor: '=HYPERLINK("http://x.com";"clique")' }]);
   await entrar(page);
-  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#btn-csv')]);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#btn-exportar').then(() => page.click('#btn-csv'))]);
   const csv = fs.readFileSync(await download.path(), 'utf8');
   expect(csv).toContain(`"'+CMD|calc"`);
   expect(csv).toContain(`"'=HYPERLINK(`);

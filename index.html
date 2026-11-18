@@ -18,7 +18,7 @@
   <script>
     // VERSÃO DO SITE: altere só aqui a cada publicação. O número vai no endereço do CSS/JS
     // e obriga o navegador a buscar os arquivos novos juntos (o GitHub Pages guarda cache por ~10 min).
-    window.ACOMPANHAIR_VERSAO = '1.22';
+    window.ACOMPANHAIR_VERSAO = '1.23';
     document.write('<link rel="stylesheet" href="css/style.css?v=' + window.ACOMPANHAIR_VERSAO + '">');
   </script>
 </head>
@@ -154,7 +154,16 @@
                 <button id="btn-expandir" class="secundario" type="button" title="Abrir todos os municípios">Expandir</button>
                 <button id="btn-recolher" class="secundario" type="button" title="Fechar todos os municípios">Recolher</button>
               </span>
-              <button id="btn-csv" class="secundario" type="button"><svg aria-hidden="true" class="ic"><use href="#i-download"/></svg>Exportar CSV</button>
+              <span class="menu-exportar">
+                <button id="btn-exportar" class="secundario" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu-exportar"><svg aria-hidden="true" class="ic"><use href="#i-download"/></svg>Exportar</button>
+                <span id="menu-exportar" class="menu-opcoes" role="menu" hidden>
+                  <span class="menu-titulo">Por município (sem nomes de empresas)</span>
+                  <button id="btn-pdf-municipios" type="button" role="menuitem">PDF por município</button>
+                  <button id="btn-csv-municipios" type="button" role="menuitem">CSV por município</button>
+                  <span class="menu-titulo">Por empresa</span>
+                  <button id="btn-csv" type="button" role="menuitem">CSV completo (com empresas)</button>
+                </span>
+              </span>
             </span>
           </div>
 
