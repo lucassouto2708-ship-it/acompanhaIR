@@ -133,10 +133,11 @@ dados são as regras de acesso do banco. **Nunca** coloque a **Secret key** (`sb
    município ou situação, vê o resumo na aba **Usuários** e clica no nome da empresa para ver o
    histórico de quem marcou o quê e quando.
 4. **Exportar** (menu no canto da lista; sempre exporta a visão filtrada):
-   - **PDF por município** e **CSV por município**: uma linha por município/ano, **sem nome nem CNPJ
-     de empresa**: quantidade de empresas, valor total, quantas passaram por cada etapa, pagas e valor
-     pago, não pagas, impugnadas, autos, encerradas e paradas, com uma linha de total. O PDF traz no
-     cabeçalho a data e os filtros aplicados.
+   - **PDF por município**: uma linha por município/ano com só **município, cálculo e número de
+     empresas**, e uma linha de total, **sem nome nem CNPJ de empresa**. O cabeçalho traz a data e os
+     filtros aplicados.
+   - **CSV por município**: também sem empresas, mas com o detalhe do andamento (etapas, pagas e valor
+     pago, não pagas, impugnadas, autos, encerradas e paradas).
    - **CSV completo (com empresas)**: uma linha por empresa, para abrir no Excel (células que
      começariam com `=`, `+`, `-` ou `@` recebem um apóstrofo na frente, para o Excel não executá-las
      como fórmula).

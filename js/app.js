@@ -1829,32 +1829,22 @@
     try { jspdf = await carregarJsPdf(); } catch (err) {
       return avisar('Não foi possível gerar o PDF: ' + err.message + '. Verifique a conexão e tente de novo.');
     }
-    const doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const doc = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const L = doc.internal.pageSize.getWidth();
     const A = doc.internal.pageSize.getHeight();
-    const M = 10;
-    const pct = (k, n) => (n ? `${k} (${Math.round((k / n) * 100)}%)` : '0');
-    // [título, largura (mm), alinhamento, valor]
+    const M = 15;
+    // Só município, cálculo e número de empresas. [título, largura (mm), alinhamento, valor]
+    // O ano entra junto do município porque o mesmo município pode ter relatórios de anos diferentes.
     const cols = [
-      ['Município/UF', 0, 'left', (r) => r.municipio + (r.uf ? '/' + r.uf : '')],
-      ['Ano', 10, 'center', (r) => String(r.ano)],
-      ['Empresas', 15, 'right', (r) => String(r.empresas)],
-      ['Valor total', 26, 'right', (r) => moeda(r.valor)],
-      ['Notificação', 19, 'right', (r) => pct(r.notificacao, r.empresas)],
-      ['Entrega', 19, 'right', (r) => pct(r.entrega, r.empresas)],
-      ['Remessa guia', 19, 'right', (r) => pct(r.remessa, r.empresas)],
-      ['Pagas', 12, 'right', (r) => String(r.pagas)],
-      ['Valor pago', 26, 'right', (r) => moeda(r.valorPago)],
-      ['Não pagas', 15, 'right', (r) => String(r.naoPagas)],
-      ['Impugnadas', 17, 'right', (r) => String(r.impugnadas)],
-      ['Autos', 11, 'right', (r) => String(r.autos)],
-      ['Encerradas', 17, 'right', (r) => String(r.encerradas)],
-      ['Paradas', 13, 'right', (r) => String(r.paradas)],
+      ['Município/UF', 0, 'left', (r) => (r.municipio === 'TOTAL' ? 'TOTAL'
+        : `${r.municipio}${r.uf ? '/' + r.uf : ''} — ${r.ano}`)],
+      ['Cálculo', 45, 'right', (r) => moeda(r.valor)],
+      ['Empresas', 25, 'right', (r) => String(r.empresas)],
     ];
     cols[0][1] = L - 2 * M - cols.slice(1).reduce((s, c) => s + c[1], 0);
     const xs = [];
     cols.reduce((x, c) => { xs.push(x); return x + c[1]; }, M);
-    const ALT = 6.5;
+    const ALT = 7.5;
     const AZUL = [30, 78, 140];
 
     const celulas = (r, negrito) => {
@@ -1875,12 +1865,11 @@
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(107, 114, 128);
         doc.text(`Gerado em ${new Date().toLocaleString('pt-BR')} · Filtros: ${descricaoFiltros()}`, M, y + 11);
         doc.text(`${linhas.length} ${linhas.length === 1 ? 'município/ano' : 'municípios/anos'} · ` +
-          `${total.empresas} ${total.empresas === 1 ? 'empresa' : 'empresas'} · valor total ${moeda(total.valor)} · ` +
-          `pago ${moeda(total.valorPago)}`, M, y + 16);
+          `${total.empresas} ${total.empresas === 1 ? 'empresa' : 'empresas'} · cálculo total ${moeda(total.valor)}`, M, y + 16);
         y += 21;
       }
       doc.setFillColor(...AZUL); doc.rect(M, y, L - 2 * M, ALT + 1, 'F');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
       cols.forEach(([t, w, al], i) => {
         const x = al === 'left' ? xs[i] + 1.5 : al === 'center' ? xs[i] + w / 2 : xs[i] + w - 1.5;
         doc.text(t, x, y + (ALT + 1) / 2, { align: al, baseline: 'middle' });
@@ -1893,21 +1882,19 @@
     linhas.forEach((r, i) => {
       if (y + ALT > A - M - 6) { doc.addPage(); cabecalho(false); }
       if (i % 2) { doc.setFillColor(245, 246, 248); doc.rect(M, y, L - 2 * M, ALT, 'F'); }
-      doc.setFontSize(8);
+      doc.setFontSize(9.5);
       celulas(r, false);
       y += ALT;
     });
     if (y + ALT + 1 > A - M - 6) { doc.addPage(); cabecalho(false); }
     doc.setDrawColor(...AZUL); doc.setLineWidth(0.4); doc.line(M, y, L - M, y);
-    doc.setFontSize(8);
+    doc.setFontSize(9.5);
     celulas(total, true);
 
     const paginas = doc.getNumberOfPages();
     for (let n = 1; n <= paginas; n++) {
       doc.setPage(n);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(107, 114, 128);
-      doc.text(`Notificação, Entrega e Remessa guia: empresas que já passaram pela etapa (% do município). ` +
-        `Paradas: iniciadas e sem movimento há ${DIAS_PARADO}+ dias.`, M, A - M + 2);
       doc.text(`Página ${n} de ${paginas}`, L - M, A - M + 2, { align: 'right' });
     }
     baixar(doc.output('blob'), `acompanhair_municipios_${hojeArquivo()}.pdf`);

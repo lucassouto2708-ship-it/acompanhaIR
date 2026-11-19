@@ -37,14 +37,16 @@ async function textoPdf(arquivo) {
   return texto;
 }
 
-test('PDF por município traz os totais da cidade e nenhuma empresa', async ({ page }) => {
+test('PDF por município: só município, cálculo e número de empresas, sem empresas', async ({ page }) => {
   const externos = await preparar(page);
   const download = await exportar(page, '#btn-pdf-municipios');
   expect(download.suggestedFilename()).toMatch(/^acompanhair_municipios_\d{4}-\d{2}-\d{2}\.pdf$/);
   const texto = await textoPdf(await download.path());
   expect(texto).toContain('Resumo por município');
-  expect(texto).toContain('LEOPOLDINA/MG');
-  expect(texto).toContain('MANTENA/MG');
+  expect(texto).toContain('LEOPOLDINA/MG — 2025');
+  expect(texto).toContain('MANTENA/MG — 2025');
+  expect(texto).toMatch(/Município\/UF\s+Cálculo\s+Empresas/);
+  for (const t of ['Valor pago', 'Pagas', 'Notificação', 'Impugnadas', 'Paradas']) expect(texto).not.toContain(t);
   expect(texto).toContain('1.500,50'); // valor de Leopoldina
   expect(texto).toContain('1.750,50'); // total geral
   expect(texto).toContain('TOTAL');

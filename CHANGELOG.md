@@ -10,7 +10,7 @@ Choose a tag** (ex.: `v1.17`) → em **Target**, escolher o commit da versão �
 ## v1.23 — 18/11/2026
 
 - Botão **Exportar** vira um menu: **PDF por município**, **CSV por município** e o CSV completo de antes
-- Exportação por município traz uma linha por município/ano (empresas, valores, etapas, pagas, impugnadas, autos, encerradas, paradas) e o total, **sem nome nem CNPJ das empresas**; respeita os filtros da tela
+- PDF por município: só município, cálculo e número de empresas, com total; CSV por município traz também o andamento (etapas, pagas, impugnadas, autos). Nenhum dos dois tem nome ou CNPJ das empresas, e ambos respeitam os filtros da tela
 - Biblioteca jsPDF incluída em `vendor/`, baixada só na hora de gerar o PDF
 
 ## v1.22 — 27/10/2026
